@@ -35,17 +35,32 @@ class GameScene extends Phaser.Scene {
     }
 }
 
+// Получаем размеры окна Telegram
+let width = 800;  // Значение по умолчанию
+let height = 600; // Значение по умолчанию
+if (window.Telegram && window.Telegram.WebApp) {
+    const viewport = window.Telegram.WebApp.viewportStableHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    width = Math.min(viewportWidth, 800); // Ограничиваем ширину до окна Telegram
+    height = Math.min(viewport, 600);     // Ограничиваем высоту до окна Telegram
+}
+
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: width,
+    height: height,
     parent: 'game-container',
     backgroundColor: '#a0a0a0',
-    scene: GameScene
+    scene: GameScene,
+    scale: {
+        mode: Phaser.Scale.FIT, // Подгоняем под размеры окна
+        autoCenter: Phaser.Scale.CENTER_BOTH // Центрируем
+    }
 };
 
-// Добавляем отладочный вывод перед запуском игры
 console.log("Phaser loaded:", typeof Phaser);
+console.log("Phaser version:", Phaser.VERSION);
+console.log("Game dimensions:", width, height);
 
 new Phaser.Game(config);
 
