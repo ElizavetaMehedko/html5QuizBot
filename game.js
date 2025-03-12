@@ -44,6 +44,9 @@ const config = {
     scene: GameScene
 };
 
+// Добавляем отладочный вывод перед запуском игры
+console.log("Phaser loaded:", typeof Phaser);
+
 new Phaser.Game(config);
 
 if (window.Telegram && window.Telegram.WebApp) {
