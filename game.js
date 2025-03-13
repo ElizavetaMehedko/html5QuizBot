@@ -4,40 +4,40 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // Тёмно-серый фон игры (через Phaser)
+        // Тёмно-серый фон игры
         this.cameras.main.setBackgroundColor('#333333');
 
-        // Адаптивный текст и кнопки
-        const fontSizeTitle = Math.min(32, height * 0.05); // Шрифт до 32px, но не больше 5% высоты
-        this.add.text(width * 0.1, height * 0.05, 'Выберите лишний кадр:', { 
+        // Адаптивный текст и кнопки с уменьшенным шрифтом
+        const fontSizeTitle = Math.min(28, height * 0.05); // Уменьшен до 28px (было 32px)
+        this.add.text(width * 0.05, height * 0.05, 'Выберите лишний кадр:', { 
             fontSize: fontSizeTitle + 'px', 
             color: '#ffffff' 
         });
 
         const options = ['Кадр 1', 'Кадр 2', 'Кадр 3', 'Кадр 4'];
         const correctAnswer = 2;
-        const buttonFontSize = Math.min(24, height * 0.04); // Шрифт до 24px, но не больше 4% высоты
+        const buttonFontSize = Math.min(20, height * 0.04); // Уменьшен до 20px (было 24px)
 
         options.forEach((text, index) => {
-            const button = this.add.text(width * 0.1, height * 0.15 + index * (height * 0.1), text, { 
+            const button = this.add.text(width * 0.05, height * 0.15 + index * (height * 0.1), text, { 
                 fontSize: buttonFontSize + 'px', 
                 color: '#ffffff', 
                 backgroundColor: '#666666' // Средне-серые кнопки
             })
-            .setPadding(10) // Добавляем отступы внутри кнопки
+            .setPadding(10) // Отступы внутри кнопки
             .setInteractive()
             .on('pointerdown', () => {
                 let resultText, points = 0;
                 if (index === correctAnswer) {
                     resultText = 'Правильно! +3 балла';
                     points = 3;
-                    this.add.text(width * 0.1, height * 0.75, resultText, { 
+                    this.add.text(width * 0.05, height * 0.75, resultText, { 
                         fontSize: buttonFontSize + 'px', 
                         color: '#00ff00' // Зелёный для "Правильно!"
                     });
                 } else {
                     resultText = 'Неправильно!';
-                    this.add.text(width * 0.1, height * 0.75, resultText, { 
+                    this.add.text(width * 0.05, height * 0.75, resultText, { 
                         fontSize: buttonFontSize + 'px', 
                         color: '#ff0000' // Красный для "Неправильно!"
                     });
