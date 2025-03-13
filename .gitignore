@@ -1,3 +1,4 @@
-.venv/
-.vercel/
-bot.py
+quiz.db
+.env
+__pycache__/
+*.pyc
