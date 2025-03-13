@@ -5,7 +5,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-TOKEN = 'YOUR_TOKEN'  # Замените на ваш токен
+TOKEN = '7784965718:AAHC59_Zj9FIGslhBVdgBlYG_WL8VYak0qo'  # Замените на ваш токен
 GROUP_CHAT_ID = -1002133226949  # Замените на ваш GROUP_CHAT_ID
 ADMIN_CHAT_ID = 167509764  # Замените на ваш ADMIN_CHAT_ID
 GAME_URL = 'https://html5-quiz-bot.vercel.app'
