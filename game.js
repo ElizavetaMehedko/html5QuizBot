@@ -4,7 +4,9 @@ class AdminMainScene extends Phaser.Scene {
     create() {
         this.cameras.main.setBackgroundColor('#333333');
         const user = window.Telegram.WebApp.initDataUnsafe.user;
+        console.log("AdminMainScene: User data:", user); // Логирование для отладки
         if (!user || user.id !== 167509764) { // Замените на ID админа
+            console.log("Not an admin, redirecting to PlayerWaitingScene");
             this.scene.start('PlayerWaitingScene');
             return;
         }
@@ -220,6 +222,7 @@ if (window.Telegram && window.Telegram.WebApp) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
     width = Math.min(viewportWidth, 800);
     height = Math.min(viewport, 600);
+    window.Telegram.WebApp.expand(); // Разворачиваем приложение на полный экран
 }
 
 width = Math.max(width, 360);
