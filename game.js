@@ -4,7 +4,12 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        this.add.text(100, 50, 'Выберите лишний кадр:', { fontSize: '32px', color: '#000' });
+        this.add.text(width * 0.1, height * 0.1, 'Выберите лишний кадр:', { fontSize: '32px', color: '#000' });
+        options.forEach((text, index) => {
+            const button = this.add.text(width * 0.1, height * 0.2 + index * 60, text, { fontSize: '24px', color: '#00f' })
+                .setInteractive()
+                .on('pointerdown', () => { /* ... */ });
+});
 
         const options = ['Кадр 1', 'Кадр 2', 'Кадр 3', 'Кадр 4'];
         const correctAnswer = 2;
@@ -36,8 +41,8 @@ class GameScene extends Phaser.Scene {
 }
 
 // Получаем размеры окна Telegram
-let width = 800;  // Значение по умолчанию
-let height = 600; // Значение по умолчанию
+let width = 360;  // Значение по умолчанию
+let height = 640; // Значение по умолчанию
 if (window.Telegram && window.Telegram.WebApp) {
     const viewport = window.Telegram.WebApp.viewportStableHeight;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
