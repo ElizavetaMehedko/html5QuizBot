@@ -43,6 +43,9 @@ class AdminMainScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -85,12 +88,23 @@ class AdminTourSelectionScene extends Phaser.Scene {
         fetch('http://localhost:5000/api/start_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: mode, name: tour })
-        }).then(response => response.json())
-          .then(data => {
-              this.registry.set('tourId', data.tour_id);
-              this.registry.set('tourName', tour);
-              this.scene.start('AdminGameScene');
-          });
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Tour started successfully:", data);
+            this.registry.set('tourId', data.tour_id);
+            this.registry.set('tourName', tour);
+            this.scene.start('AdminGameScene');
+        })
+        .catch(error => {
+            console.error("Error starting tour:", error);
+            this.add.text(width * 0.05, height * 0.4, 'Ошибка при запуске тура!', { 
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: width * 0.9 }
+            });
+        });
     }
     showLeaderboard() {
         fetch('http://localhost:5000/api/leaderboard')
@@ -103,6 +117,9 @@ class AdminTourSelectionScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -119,6 +136,7 @@ class AdminGameScene extends Phaser.Scene {
             fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
         this.updateAnswers();
+        this.time.addEvent({ delay: 2000, callback: this.updateAnswers, callbackScope: this, loop: true });
         this.addAdminPanel();
     }
     addAdminPanel() {
@@ -146,6 +164,9 @@ class AdminGameScene extends Phaser.Scene {
                     text += `${answer.name}: Кадр ${answer.answer}\n`;
                 });
                 this.answersText.setText(text);
+            })
+            .catch(error => {
+                console.error("Error updating answers:", error);
             });
     }
     showLeaderboard() {
@@ -159,6 +180,9 @@ class AdminGameScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -205,7 +229,20 @@ class AdminEndTourScene extends Phaser.Scene {
         fetch('http://localhost:5000/api/end_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tour_id: this.registry.get('tourId'), correct_answer: correctFrame })
-        }).then(() => this.scene.start('AdminTourResultsScene'));
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(() => {
+            this.scene.start('AdminTourResultsScene');
+        })
+        .catch(error => {
+            console.error("Error ending tour:", error);
+            this.add.text(width * 0.05, height * 0.4, 'Ошибка при завершении тура!', { 
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: width * 0.9 }
+            });
+        });
     }
     showLeaderboard() {
         fetch('http://localhost:5000/api/leaderboard')
@@ -218,6 +255,9 @@ class AdminEndTourScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -239,6 +279,9 @@ class AdminTourResultsScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.15, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching tour results:", error);
             });
         this.addAdminPanel();
     }
@@ -269,6 +312,9 @@ class AdminTourResultsScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -298,8 +344,13 @@ class AdminPointsScene extends Phaser.Scene {
                     fetch('http://localhost:5000/api/submit_answer', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ user_id: 0, tour_id: 0, points: points, answer: playerName })
+                    })
+                    .then(() => {
+                        this.scene.start('AdminMainScene');
+                    })
+                    .catch(error => {
+                        console.error("Error submitting points:", error);
                     });
-                    this.scene.start('AdminMainScene');
                 }
             });
         });
@@ -332,6 +383,9 @@ class AdminPointsScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.2, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
             });
     }
 }
@@ -349,9 +403,8 @@ class PlayerWaitingScene extends Phaser.Scene {
             console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
             this.scene.start('AdminMainScene');
         } else {
-            this.add.text(width * 0.5, height * 0.75, 'Обновить статус', { 
-                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
-            }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.checkTour());
+            this.checkTour(); // Проверить сразу при загрузке
+            this.time.addEvent({ delay: 2000, callback: this.checkTour, callbackScope: this, loop: true });
         }
     }
     checkTour() {
@@ -364,6 +417,9 @@ class PlayerWaitingScene extends Phaser.Scene {
                     this.registry.set('tourName', data.name);
                     this.scene.start('PlayerGameScene');
                 }
+            })
+            .catch(error => {
+                console.error("Error checking tour status:", error);
             });
     }
 }
@@ -377,9 +433,8 @@ class PlayerGameScene extends Phaser.Scene {
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
         if (this.registry.get('mode') === 'buttons') this.startButtonsMode();
-        this.add.text(width * 0.5, height * 0.75, 'Обновить статус', { 
-            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
-        }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.checkTourEnded());
+        this.checkTourEnded(); // Проверить сразу при загрузке
+        this.time.addEvent({ delay: 2000, callback: this.checkTourEnded, callbackScope: this, loop: true });
     }
     startButtonsMode() {
         const options = ['Кадр 1', 'Кадр 2', 'Кадр 3', 'Кадр 4'];
@@ -395,9 +450,17 @@ class PlayerGameScene extends Phaser.Scene {
         fetch('http://localhost:5000/api/submit_answer', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points: 0, answer })
-        }).then(() => {
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             this.add.text(width * 0.05, height * 0.75, 'Ответ принят!', { 
                 fontSize: '20px', color: '#00ff00'
+            });
+        })
+        .catch(error => {
+            console.error("Error submitting answer:", error);
+            this.add.text(width * 0.05, height * 0.75, 'Ошибка при отправке ответа!', { 
+                fontSize: '20px', color: '#ff0000'
             });
         });
     }
@@ -408,6 +471,9 @@ class PlayerGameScene extends Phaser.Scene {
                 if (data.ended) {
                     this.scene.start('PlayerTourResultsScene');
                 }
+            })
+            .catch(error => {
+                console.error("Error checking tour end:", error);
             });
     }
 }
@@ -429,6 +495,9 @@ class PlayerTourResultsScene extends Phaser.Scene {
                 this.add.text(width * 0.05, height * 0.15, text, { 
                     fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
                 });
+            })
+            .catch(error => {
+                console.error("Error fetching tour results:", error);
             });
     }
 }
