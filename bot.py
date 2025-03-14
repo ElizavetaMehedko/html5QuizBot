@@ -1,19 +1,46 @@
+from dotenv import load_dotenv
 import telebot
 from telebot import types
 import requests
 import logging
+import os
+
+# Загрузка переменных из .env
+load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-TOKEN = '7784965718:AAHC59_Zj9FIGslhBVdgBlYG_WL8VYak0qo'  # Замените на ваш токен
-GROUP_CHAT_ID = -1002133226949  # Замените на ваш GROUP_CHAT_ID
-ADMIN_CHAT_ID = 167509764  # ID админа
-GAME_URL = 'https://html5-quiz-bot.vercel.app'  # Базовый URL игры
-SERVER_URL = 'http://localhost:5000'  # URL сервера
+# Получение и валидация токена
+TOKEN = os.getenv('TOKEN')
+if not TOKEN or ':' not in TOKEN:
+    logger.error("Invalid or missing TOKEN. Please check .env file.")
+    raise ValueError("TOKEN must contain a colon and be valid.")
+
+# Получение и валидация chat IDs
+GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID')
+ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
+
+if not GROUP_CHAT_ID or not ADMIN_CHAT_ID:
+    logger.error("Missing GROUP_CHAT_ID or ADMIN_CHAT_ID. Please check .env file.")
+    raise ValueError("GROUP_CHAT_ID and ADMIN_CHAT_ID must be set in .env.")
+
+try:
+    GROUP_CHAT_ID = int(GROUP_CHAT_ID)
+    ADMIN_CHAT_ID = int(ADMIN_CHAT_ID)
+except ValueError:
+    logger.error("GROUP_CHAT_ID and ADMIN_CHAT_ID must be valid integers.")
+    raise ValueError("GROUP_CHAT_ID and ADMIN_CHAT_ID must be valid integers.")
+
+GAME_URL = 'https://html5-quiz-bot.vercel.app'  # Базовый URL приложения
+WEBAPP_SHORT_NAME = 'liza_quiz'  # Зарегистрированное имя в BotFather
+WEBAPP_URL = f'https://t.me/html5QuizBot/{WEBAPP_SHORT_NAME}'  # Ссылка для открытия WebApp
+SERVER_URL = 'http://localhost:5000'
 
 bot = telebot.TeleBot(TOKEN)
+logger.info(f"Bot initialized with username: {bot.get_me().username}")
+
 group_messages = []
 
 @bot.message_handler(commands=['start'])
@@ -82,18 +109,17 @@ def send_play_button(message):
         bot.send_message(message.chat.id, "🚫 *Команда только для админа!*", parse_mode='Markdown')
         return
 
-    # Создаем URL для WebApp с параметром startapp
-    webapp_url = f"https://t.me/{bot.get_me().username}?startapp=1"
-    markup = types.InlineKeyboardMarkup()
-    play_button = types.InlineKeyboardButton("🎮 Играть", url=webapp_url)
-    markup.add(play_button)
-    bot.send_message(GROUP_CHAT_ID, "🎉 *Тур начат! Нажмите, чтобы играть:*", reply_markup=markup, parse_mode='Markdown')
-    logger.info("Play button sent to group")
-    
-    # Сообщение для админа с WebApp URL
-    admin_message = f"✅ *Тур начат! Перейдите к управлению игрой:* [Играть]({webapp_url})"
-    bot.send_message(ADMIN_CHAT_ID, admin_message, parse_mode='Markdown', disable_web_page_preview=True)
-    logger.info(f"Play link sent to admin {ADMIN_CHAT_ID}")
+    try:
+        markup = types.InlineKeyboardMarkup()
+        play_button = types.InlineKeyboardButton("🎮 Играть", url=WEBAPP_URL)
+        markup.add(play_button)
+        bot.send_message(GROUP_CHAT_ID, "🎉 *Игра начата! Нажмите, чтобы играть:*", reply_markup=markup, parse_mode='Markdown')
+        logger.info(f"Play button sent to group with URL: {WEBAPP_URL}")
+        bot.send_message(ADMIN_CHAT_ID, "🎉 *Игра начата! Нажмите, чтобы управлять игрой:*", reply_markup=markup, parse_mode='Markdown')
+        logger.info(f"Play button sent to admin {ADMIN_CHAT_ID}")
+    except Exception as e:
+        logger.error(f"Failed to send play button: {e}")
+        bot.send_message(ADMIN_CHAT_ID, f"❌ Ошибка при отправке кнопки Играть: {str(e)}. Проверьте логи.")
 
 if __name__ == '__main__':
     logger.info("Bot started polling")

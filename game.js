@@ -4,8 +4,8 @@ class AdminMainScene extends Phaser.Scene {
     create() {
         this.cameras.main.setBackgroundColor('#333333');
         const user = window.Telegram.WebApp.initDataUnsafe.user;
-        console.log("AdminMainScene: User data:", user); // Логирование для отладки
-        if (!user || user.id !== 167509764) { // Проверка на админа
+        console.log("AdminMainScene: User data:", user);
+        if (!user || user.id !== 167509764) {
             console.log("No user data or not admin, redirecting to PlayerWaitingScene");
             this.scene.start('PlayerWaitingScene');
             return;
@@ -14,24 +14,23 @@ class AdminMainScene extends Phaser.Scene {
         this.add.text(width * 0.05, height * 0.05, 'Панель администратора', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
         const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
         buttons.forEach((text, index) => {
-            this.add.text(width * 0.05, height * 0.2 + index * 60, text, { 
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
                 fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
             }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
         });
     }
     handleAdminAction(action) {
         if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
-        else if (action === 'Конец тура') this.endTour();
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
         else if (action === 'Таблица лидеров') this.showLeaderboard();
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
-    }
-    endTour() {
-        fetch('http://localhost:5000/api/end_tour', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tour_id: this.registry.get('tourId') })
-        }).then(() => this.scene.start('AdminMainScene'));
     }
     showLeaderboard() {
         fetch('http://localhost:5000/api/leaderboard')
@@ -57,10 +56,27 @@ class AdminTourSelectionScene extends Phaser.Scene {
         });
         const tours = ['Лишний кадр', 'Числа', 'Кто быстрее'];
         tours.forEach((text, index) => {
-            this.add.text(width * 0.05, height * 0.2 + index * 60, text, { 
+            this.add.text(width * 0.05, height * 0.15 + index * 60, text, { 
                 fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
             }).setPadding(10).setInteractive().on('pointerdown', () => this.startTour(text));
         });
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
+        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
+        buttons.forEach((text, index) => {
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
+        });
+    }
+    handleAdminAction(action) {
+        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
+        else if (action === 'Таблица лидеров') this.showLeaderboard();
+        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     startTour(tour) {
         let mode = 'buttons';
@@ -72,8 +88,188 @@ class AdminTourSelectionScene extends Phaser.Scene {
         }).then(response => response.json())
           .then(data => {
               this.registry.set('tourId', data.tour_id);
-              this.scene.start('PlayerGameScene');
+              this.registry.set('tourName', tour);
+              this.scene.start('AdminGameScene');
           });
+    }
+    showLeaderboard() {
+        fetch('http://localhost:5000/api/leaderboard')
+            .then(response => response.json())
+            .then(data => {
+                let text = '🏆 Таблица лидеров:\n';
+                data.leaderboard.forEach((player, i) => {
+                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.2, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
+    }
+}
+
+class AdminGameScene extends Phaser.Scene {
+    constructor() { super('AdminGameScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#333333');
+        const tourName = this.registry.get('tourName');
+        this.add.text(width * 0.05, height * 0.05, tourName, { 
+            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+        });
+        this.answersText = this.add.text(width * 0.05, height * 0.15, 'Ожидание ответов...', { 
+            fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+        });
+        this.updateAnswers();
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
+        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
+        buttons.forEach((text, index) => {
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
+        });
+    }
+    handleAdminAction(action) {
+        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
+        else if (action === 'Таблица лидеров') this.showLeaderboard();
+        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
+    }
+    updateAnswers() {
+        fetch('http://localhost:5000/api/tour_answers?tour_id=' + this.registry.get('tourId'))
+            .then(response => response.json())
+            .then(data => {
+                let text = 'Ответы игроков:\n';
+                data.answers.forEach(answer => {
+                    text += `${answer.name}: Кадр ${answer.answer}\n`;
+                });
+                this.answersText.setText(text);
+            });
+    }
+    showLeaderboard() {
+        fetch('http://localhost:5000/api/leaderboard')
+            .then(response => response.json())
+            .then(data => {
+                let text = '🏆 Таблица лидеров:\n';
+                data.leaderboard.forEach((player, i) => {
+                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.2, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
+    }
+}
+
+class AdminEndTourScene extends Phaser.Scene {
+    constructor() { super('AdminEndTourScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#333333');
+        this.add.text(width * 0.05, height * 0.05, 'Введите правильный кадр:', { 
+            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+        });
+        this.inputField = this.add.dom(width * 0.5, height * 0.2, 'input', { 
+            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666', padding: 10 
+        }, '').setOrigin(0.5);
+        this.add.text(width * 0.5, height * 0.3, 'Отправить', { 
+            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+        }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.submitCorrectFrame());
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
+        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
+        buttons.forEach((text, index) => {
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
+        });
+    }
+    handleAdminAction(action) {
+        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
+        else if (action === 'Таблица лидеров') this.showLeaderboard();
+        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
+    }
+    submitCorrectFrame() {
+        const correctFrame = parseInt(this.inputField.node.value);
+        if (isNaN(correctFrame) || correctFrame < 1 || correctFrame > 4) {
+            this.add.text(width * 0.05, height * 0.4, 'Введите число от 1 до 4!', { 
+                fontSize: '20px', color: '#ff0000'
+            });
+            return;
+        }
+        fetch('http://localhost:5000/api/end_tour', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tour_id: this.registry.get('tourId'), correct_answer: correctFrame })
+        }).then(() => this.scene.start('AdminTourResultsScene'));
+    }
+    showLeaderboard() {
+        fetch('http://localhost:5000/api/leaderboard')
+            .then(response => response.json())
+            .then(data => {
+                let text = '🏆 Таблица лидеров:\n';
+                data.leaderboard.forEach((player, i) => {
+                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.2, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
+    }
+}
+
+class AdminTourResultsScene extends Phaser.Scene {
+    constructor() { super('AdminTourResultsScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#333333');
+        this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
+            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+        });
+        fetch('http://localhost:5000/api/tour_results?tour_id=' + this.registry.get('tourId'))
+            .then(response => response.json())
+            .then(data => {
+                let text = 'Результаты:\n';
+                data.results.forEach(result => {
+                    text += `${result.name}: Кадр ${result.answer}, ${result.points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.15, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
+        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
+        buttons.forEach((text, index) => {
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
+        });
+    }
+    handleAdminAction(action) {
+        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
+        else if (action === 'Таблица лидеров') this.showLeaderboard();
+        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
+    }
+    showLeaderboard() {
+        fetch('http://localhost:5000/api/leaderboard')
+            .then(response => response.json())
+            .then(data => {
+                let text = '🏆 Таблица лидеров:\n';
+                data.leaderboard.forEach((player, i) => {
+                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.2, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
     }
 }
 
@@ -107,6 +303,36 @@ class AdminPointsScene extends Phaser.Scene {
                 }
             });
         });
+        this.addAdminPanel();
+    }
+    addAdminPanel() {
+        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
+        buttons.forEach((text, index) => {
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
+        });
+    }
+    handleAdminAction(action) {
+        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
+        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
+        else if (action === 'Таблица лидеров') this.showLeaderboard();
+        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
+    }
+    showLeaderboard() {
+        fetch('http://localhost:5000/api/leaderboard')
+            .then(response => response.json())
+            .then(data => {
+                let text = '🏆 Таблица лидеров:\n';
+                data.leaderboard.forEach((player, i) => {
+                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.2, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
     }
 }
 
@@ -115,15 +341,30 @@ class PlayerWaitingScene extends Phaser.Scene {
     create() {
         this.cameras.main.setBackgroundColor('#333333');
         const user = window.Telegram.WebApp.initDataUnsafe.user;
-        console.log("PlayerWaitingScene: User data:", user); // Логирование
+        console.log("PlayerWaitingScene: User data:", user);
         this.add.text(width * 0.05, height * 0.05, 'Ожидайте начала тура', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
-        // Проверка на админа для переключения
         if (user && user.id === 167509764) {
             console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
             this.scene.start('AdminMainScene');
+        } else {
+            this.add.text(width * 0.5, height * 0.75, 'Обновить статус', { 
+                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+            }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.checkTour());
         }
+    }
+    checkTour() {
+        fetch('http://localhost:5000/api/current_tour')
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    this.registry.set('tourId', data.id);
+                    this.registry.set('mode', data.mode);
+                    this.registry.set('tourName', data.name);
+                    this.scene.start('PlayerGameScene');
+                }
+            });
     }
 }
 
@@ -131,25 +372,16 @@ class PlayerGameScene extends Phaser.Scene {
     constructor() { super('PlayerGameScene'); }
     create() {
         this.cameras.main.setBackgroundColor('#333333');
-        fetch('http://localhost:5000/api/current_tour')
-            .then(response => response.json())
-            .then(data => {
-                this.registry.set('tourId', data.id);
-                this.registry.set('mode', data.mode);
-                this.registry.set('correctAnswer', data.correct_answer ? parseInt(data.correct_answer) : null);
-                this.startPlayerGame();
-            });
-    }
-    startPlayerGame() {
-        const mode = this.registry.get('mode');
-        if (mode === 'buttons') this.startButtonsMode();
-        else if (mode === 'numbers') this.startNumbersMode();
-        else if (mode === 'fastest') this.startFastestMode();
-    }
-    startButtonsMode() {
-        this.add.text(width * 0.05, height * 0.05, 'Выберите лишний кадр:', { 
+        const tourName = this.registry.get('tourName');
+        this.add.text(width * 0.05, height * 0.05, tourName, { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
+        if (this.registry.get('mode') === 'buttons') this.startButtonsMode();
+        this.add.text(width * 0.5, height * 0.75, 'Обновить статус', { 
+            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
+        }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.checkTourEnded());
+    }
+    startButtonsMode() {
         const options = ['Кадр 1', 'Кадр 2', 'Кадр 3', 'Кадр 4'];
         options.forEach((text, index) => {
             this.add.text(width * 0.05, height * 0.15 + index * (height * 0.1), text, { 
@@ -157,48 +389,9 @@ class PlayerGameScene extends Phaser.Scene {
             }).setPadding(10).setInteractive().on('pointerdown', () => this.handleButtonClick(index + 1));
         });
     }
-    startNumbersMode() {
-        this.add.text(width * 0.05, height * 0.05, 'Введите число:', { 
-            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
-        });
-        this.inputField = this.add.dom(width * 0.5, height * 0.3, 'input', { 
-            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666', padding: 10 
-        }, '').setOrigin(0.5);
-        this.add.text(width * 0.5, height * 0.4, 'Отправить', { 
-            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
-        }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.handleNumberSubmit());
-    }
-    startFastestMode() {
-        this.add.text(width * 0.05, height * 0.05, 'Кто быстрее?', { 
-            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
-        });
-        this.add.text(width * 0.5, height * 0.3, 'Нажми меня!', { 
-            fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
-        }).setOrigin(0.5).setPadding(10).setInteractive().on('pointerdown', () => this.handleFastestClick());
-    }
     handleButtonClick(answer) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         if (!user) return;
-        let points = (answer === this.registry.get('correctAnswer')) ? 3 : 0;
-        fetch('http://localhost:5000/api/submit_answer', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points, answer })
-        }).then(() => {
-            this.add.text(width * 0.05, height * 0.75, points ? 'Правильно!' : 'Неправильно!', { 
-                fontSize: '20px', color: points ? '#00ff00' : '#ff0000'
-            });
-        });
-    }
-    handleNumberSubmit() {
-        const user = window.Telegram.WebApp.initDataUnsafe.user;
-        if (!user || !this.inputField) return;
-        const answer = parseInt(this.inputField.node.value);
-        if (isNaN(answer)) {
-            this.add.text(width * 0.05, height * 0.75, 'Введите число!', { 
-                fontSize: '20px', color: '#ff0000'
-            });
-            return;
-        }
         fetch('http://localhost:5000/api/submit_answer', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points: 0, answer })
@@ -208,17 +401,35 @@ class PlayerGameScene extends Phaser.Scene {
             });
         });
     }
-    handleFastestClick() {
-        const user = window.Telegram.WebApp.initDataUnsafe.user;
-        if (!user) return;
-        fetch('http://localhost:5000/api/submit_answer', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points: 0, answer: 'clicked' })
-        }).then(() => {
-            this.add.text(width * 0.05, height * 0.75, 'Вы нажали!', { 
-                fontSize: '20px', color: '#00ff00'
+    checkTourEnded() {
+        fetch('http://localhost:5000/api/tour_status?tour_id=' + this.registry.get('tourId'))
+            .then(response => response.json())
+            .then(data => {
+                if (data.ended) {
+                    this.scene.start('PlayerTourResultsScene');
+                }
             });
+    }
+}
+
+class PlayerTourResultsScene extends Phaser.Scene {
+    constructor() { super('PlayerTourResultsScene'); }
+    create() {
+        this.cameras.main.setBackgroundColor('#333333');
+        this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
+            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
+        fetch('http://localhost:5000/api/tour_results?tour_id=' + this.registry.get('tourId'))
+            .then(response => response.json())
+            .then(data => {
+                let text = 'Результаты:\n';
+                data.results.forEach(result => {
+                    text += `${result.name}: Кадр ${result.answer}, ${result.points} баллов\n`;
+                });
+                this.add.text(width * 0.05, height * 0.15, text, { 
+                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+                });
+            });
     }
 }
 
@@ -231,7 +442,7 @@ if (window.Telegram && window.Telegram.WebApp) {
     width = Math.min(viewportWidth, 800);
     height = Math.min(viewport, 600);
     window.Telegram.WebApp.expand();
-    console.log("Telegram WebApp initialized, initData:", window.Telegram.WebApp.initData); // Логирование initData
+    console.log("Telegram WebApp initialized, initData:", window.Telegram.WebApp.initData);
 }
 
 width = Math.max(width, 360);
@@ -242,7 +453,7 @@ const config = {
     width: width,
     height: height,
     parent: 'game-container',
-    scene: [AdminMainScene, AdminTourSelectionScene, AdminPointsScene, PlayerWaitingScene, PlayerGameScene],
+    scene: [AdminMainScene, AdminTourSelectionScene, AdminGameScene, AdminEndTourScene, AdminTourResultsScene, AdminPointsScene, PlayerWaitingScene, PlayerGameScene, PlayerTourResultsScene],
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
 };
 
