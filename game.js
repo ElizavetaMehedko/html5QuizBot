@@ -5,13 +5,8 @@ class AdminMainScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#333333');
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         console.log("AdminMainScene: User data:", user); // Логирование для отладки
-        if (!user) {
-            console.log("No user data available, redirecting to PlayerWaitingScene");
-            this.scene.start('PlayerWaitingScene');
-            return;
-        }
-        if (user.id !== 167509764) { // Замените на ID админа
-            console.log(`User ID ${user.id} is not admin, redirecting to PlayerWaitingScene`);
+        if (!user || user.id !== 167509764) { // Проверка на админа
+            console.log("No user data or not admin, redirecting to PlayerWaitingScene");
             this.scene.start('PlayerWaitingScene');
             return;
         }
@@ -119,9 +114,16 @@ class PlayerWaitingScene extends Phaser.Scene {
     constructor() { super('PlayerWaitingScene'); }
     create() {
         this.cameras.main.setBackgroundColor('#333333');
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        console.log("PlayerWaitingScene: User data:", user); // Логирование
         this.add.text(width * 0.05, height * 0.05, 'Ожидайте начала тура', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
+        // Проверка на админа для переключения
+        if (user && user.id === 167509764) {
+            console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
+            this.scene.start('AdminMainScene');
+        }
     }
 }
 
@@ -229,6 +231,7 @@ if (window.Telegram && window.Telegram.WebApp) {
     width = Math.min(viewportWidth, 800);
     height = Math.min(viewport, 600);
     window.Telegram.WebApp.expand();
+    console.log("Telegram WebApp initialized, initData:", window.Telegram.WebApp.initData); // Логирование initData
 }
 
 width = Math.max(width, 360);
