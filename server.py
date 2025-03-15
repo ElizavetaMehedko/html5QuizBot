@@ -126,10 +126,18 @@ def start_tour():
     data = request.json
     mode = data.get('mode')
     name = data.get('name')
+    user_id = data.get('user_id')
     if not mode or not name:
         app.logger.error(f"Invalid request data: mode={mode}, name={name}")
         return jsonify({'status': 'error', 'message': 'Missing mode or name'}), 400
+    if not user_id:
+        app.logger.error("Missing user_id")
+        return jsonify({'status': 'error', 'message': 'Missing user_id'}), 400
     try:
+        # Проверяем, является ли пользователь админом
+        if str(user_id) != ADMIN_CHAT_ID:
+            app.logger.warning(f"Unauthorized attempt to start tour by user {user_id}")
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
         db = get_db()
         cursor = db.cursor()
         cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-15', mode))

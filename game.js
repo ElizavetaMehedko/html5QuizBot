@@ -81,28 +81,35 @@ class AdminTourSelectionScene extends Phaser.Scene {
         else if (action === 'Таблица лидеров') this.showLeaderboard();
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
-    startTour(tour) {
-        let mode = 'buttons';
-        if (tour === 'Числа') mode = 'numbers';
-        else if (tour === 'Кто быстрее') mode = 'fastest';
-        fetch('https://telegram-quiz-game.onrender.com/api/start_tour', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: mode, name: tour })
+    startTour(mode) {
+        const initData = Telegram.WebApp.initDataUnsafe;
+        const userId = initData.user ? initData.user.id : null;
+        if (!userId) {
+            this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.4, 'Ошибка: Нет данных пользователя!', {
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
+            });
+            return;
+        }
+        const tour = this.registry.get('tourName') || `Тур ${new Date().toISOString().slice(0, 10)}`;
+        fetch('https://html5quizbot.onrender.com/api/start_tour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: mode || 'extra_frame', name: tour, user_id: userId })
         })
         .then(response => {
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log("Tour started successfully:", data);
+            console.log("Tour started:", data);
             this.registry.set('tourId', data.tour_id);
             this.registry.set('tourName', tour);
             this.scene.start('AdminGameScene');
         })
         .catch(error => {
-            console.error("Error starting tour:", error);
-            this.add.text(width * 0.05, height * 0.4, 'Ошибка при запуске тура!', { 
-                fontSize: '20px', color: '#ff0000', wordWrap: { width: width * 0.9 }
+            console.error("Error:", error);
+            this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.4, 'Ошибка при запуске тура!', {
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
             });
         });
     }
