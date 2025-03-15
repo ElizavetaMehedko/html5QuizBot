@@ -147,6 +147,11 @@ class AdminGameScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
         const tourName = this.registry.get('tourName');
+
+        // Серый фон
+        this.cameras.main.setBackgroundColor('#666666');
+
+        // Текст тура
         this.add.text(width * 0.05, height * 0.05, `Тур: ${tourName}`, { fontSize: '20px', color: '#ffffff' });
 
         // Отображение 4 кадров
@@ -159,20 +164,15 @@ class AdminGameScene extends Phaser.Scene {
             this.add.image(width * 0.8, height * 0.3, 'frame4').setDisplaySize(frameWidth, frameHeight)
         ];
 
-        // Добавление текста с номерами под каждым кадром
+        // Номера под кадрами
         frames.forEach((frame, index) => {
-            this.add.text(
-                frame.x - frameWidth / 4,
-                frame.y + frameHeight / 2 + 10,
-                `${index + 1}`,
-                { fontSize: '16px', color: '#ffffff' }
-            );
+            this.add.text(frame.x - frameWidth / 4, frame.y + frameHeight / 2 + 10, `${index + 1}`, { fontSize: '16px', color: '#ffffff' });
         });
 
-        // Добавление текста
+        // Текст инструкции
         this.add.text(width * 0.05, height * 0.5, 'Выберите лишний кадр:', { fontSize: '20px', color: '#ffffff' });
 
-        // Добавление кнопок для выбора кадра
+        // Кнопки выбора кадра
         const buttonWidth = width * 0.15;
         const buttonHeight = height * 0.1;
         const buttonSpacing = width * 0.05;
@@ -181,16 +181,29 @@ class AdminGameScene extends Phaser.Scene {
             const buttonX = width * 0.2 + (i - 1) * (buttonWidth + buttonSpacing);
             const buttonY = height * 0.65;
 
-            const button = this.add.rectangle(buttonX, buttonY, buttonWidth, buttonHeight, 0x00ff00)
+            const button = this.add.rectangle(buttonX, buttonY, buttonWidth, buttonHeight, 0x999999) // Светло-серые кнопки
                 .setStrokeStyle(2, 0x000000)
                 .setInteractive();
 
-            this.add.text(buttonX - 10, buttonY - 10, `${i}`, { fontSize: '20px', color: '#000000' });
+            this.add.text(buttonX, buttonY, `${i}`, { fontSize: '20px', color: '#000000' })
+                .setOrigin(0.5);
 
             button.on('pointerdown', () => {
                 this.submitAnswer(i);
             });
         }
+
+        // Кнопка "Конец тура"
+        const endTourButton = this.add.rectangle(width * 0.5, height * 0.85, width * 0.3, height * 0.1, 0x999999) // Светло-серые кнопки
+            .setStrokeStyle(2, 0x000000)
+            .setInteractive();
+
+        this.add.text(width * 0.5, height * 0.85, 'Конец тура', { fontSize: '20px', color: '#000000' })
+            .setOrigin(0.5);
+
+        endTourButton.on('pointerdown', () => {
+            this.endTour();
+        });
     }
 
     submitAnswer(frameNumber) {
@@ -199,6 +212,31 @@ class AdminGameScene extends Phaser.Scene {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tour_id: tourId, correct_answer: frameNumber })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                this.scene.start('AdminResultsScene');
+            } else {
+                this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.8, 'Ошибка при выборе кадра!', {
+                    fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.8, 'Ошибка при выборе кадра!', {
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
+            });
+        });
+    }
+
+    endTour() {
+        const tourId = this.registry.get('tourId');
+        fetch('https://html5quizbot.onrender.com/api/end_tour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tour_id: tourId, correct_answer: null })
         })
         .then(response => response.json())
         .then(data => {
