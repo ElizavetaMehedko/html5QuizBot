@@ -1,7 +1,10 @@
 // Подключение Telegram WebApp API
 const Telegram = window.Telegram;
 
-// Сцены
+// Инициализация Telegram WebApp
+Telegram.WebApp.ready();
+const initData = Telegram.WebApp.initDataUnsafe;
+
 class MainScene extends Phaser.Scene {
     constructor() {
         super('MainScene');
@@ -14,16 +17,17 @@ class MainScene extends Phaser.Scene {
         // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Получение данных пользователя из Telegram
-        const user = Telegram.WebApp.initDataUnsafe.user;
-        if (!user) {
-            this.add.text(width * 0.5, height * 0.5, 'Ошибка: Нет данных пользователя.\nПожалуйста, перезапустите приложение.', { fontSize: '20px', color: '#ff0000', align: 'center' })
+        // Проверка данных пользователя
+        if (!initData || !initData.user) {
+            this.add.text(width * 0.5, height * 0.5, 'Ошибка: Нет данных пользователя.\nУбедитесь, что вы открыли приложение через Telegram.', { fontSize: '20px', color: '#ff0000', align: 'center' })
                 .setOrigin(0.5);
             return;
         }
 
-        const userId = user.id;
+        const userId = initData.user.id;
+        const userName = initData.user.first_name || "Unknown";
         this.registry.set('userId', userId);
+        this.registry.set('userName', userName);
 
         // Проверка, зарегистрирован ли пользователь
         fetch('https://html5quizbot.onrender.com/api/leaderboard')
@@ -37,7 +41,7 @@ class MainScene extends Phaser.Scene {
                 }
 
                 // Отображение ожидания тура
-                this.add.text(width * 0.5, height * 0.3, `Привет, ${player.name}!`, { fontSize: '24px', color: '#ffffff' })
+                this.add.text(width * 0.5, height * 0.3, `Привет, ${userName}!`, { fontSize: '24px', color: '#ffffff' })
                     .setOrigin(0.5);
                 this.waitText = this.add.text(width * 0.5, height * 0.5, 'Ожидайте начала тура...', { fontSize: '20px', color: '#ffffff' })
                     .setOrigin(0.5);
