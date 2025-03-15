@@ -181,7 +181,7 @@ class AdminGameScene extends Phaser.Scene {
             const buttonX = width * 0.2 + (i - 1) * (buttonWidth + buttonSpacing);
             const buttonY = height * 0.65;
 
-            const button = this.add.rectangle(buttonX, buttonY, buttonWidth, buttonHeight, 0x999999) // Светло-серые кнопки
+            const button = this.add.rectangle(buttonX, buttonY, buttonWidth, buttonHeight, 0x999999)
                 .setStrokeStyle(2, 0x000000)
                 .setInteractive();
 
@@ -194,7 +194,7 @@ class AdminGameScene extends Phaser.Scene {
         }
 
         // Кнопка "Конец тура"
-        const endTourButton = this.add.rectangle(width * 0.5, height * 0.85, width * 0.3, height * 0.1, 0x999999) // Светло-серые кнопки
+        const endTourButton = this.add.rectangle(width * 0.5, height * 0.85, width * 0.3, height * 0.1, 0x999999)
             .setStrokeStyle(2, 0x000000)
             .setInteractive();
 
@@ -236,7 +236,7 @@ class AdminGameScene extends Phaser.Scene {
         fetch('https://html5quizbot.onrender.com/api/end_tour', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tour_id: tourId, correct_answer: null })
+            body: JSON.stringify({ tour_id: tourId })
         })
         .then(response => response.json())
         .then(data => {
