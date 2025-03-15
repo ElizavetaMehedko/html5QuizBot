@@ -1,4 +1,16 @@
+# Локальная база данных (используем Render Postgres)
 quiz.db
+# Переменные окружения (хранятся в Render)
 .env
+# Кэш и временные файлы Python
 __pycache__/
 *.pyc
+*.log
+# Настройки редактора и Vercel
+.vscode/
+.vercel/
+*.tmp
+*.swp
+# Временные файлы фронтенда
+node_modules/
+dist/
