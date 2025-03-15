@@ -33,7 +33,7 @@ class AdminMainScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard') // Исправлено
+        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -341,15 +341,15 @@ class AdminPointsScene extends Phaser.Scene {
                 else if (text === '+0.25') points += 0.25;
                 else if (text === 'Отправить') {
                     const playerName = input.node.value;
-                    const user = window.Telegram.WebApp.initDataUnsafe.user; // Получаем данные пользователя
+                    const user = window.Telegram.WebApp.initDataUnsafe.user;
                     fetch('https://4051-185-186-156-118.ngrok-free.app/api/submit_answer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
-                            user_id: user ? user.id : 0, // Используем реальный user_id
-                            tour_id: this.registry.get('tourId') || 0, // Используем текущий tour_id
-                            points: points, 
-                            answer: playerName 
+                            user_id: user ? user.id : 0,
+                            tour_id: this.registry.get('tourId') || 0,
+                            points: points,
+                            answer: playerName
                         })
                     })
                     .then(response => {
@@ -417,7 +417,6 @@ class PlayerWaitingScene extends Phaser.Scene {
             console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
             this.scene.start('AdminMainScene');
         } else if (user) {
-            // Регистрация игрока
             fetch('https://4051-185-186-156-118.ngrok-free.app/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
