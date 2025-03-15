@@ -87,9 +87,9 @@ def handle_message(message):
     elif message.text == '/registration' and str(message.chat.id) == ADMIN_CHAT_ID:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", callback_data="register"))
-        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:\nАдмин, завершайте регистрацию командой /endregistration", reply_markup=markup)
+        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
         registration_message_id = msg.message_id
-        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
+        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}\nЗавершайте регистрацию командой /endregistration")
     elif message.text == '/registration':
         bot.reply_to(message, "Только администратор может начать регистрацию.")
     elif message.text == '/endregistration' and str(message.chat.id) == ADMIN_CHAT_ID:
