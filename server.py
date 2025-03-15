@@ -4,6 +4,7 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import logging
+import telebot
 
 # Создание экземпляра Flask
 app = Flask(__name__)
@@ -17,8 +18,14 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Загрузка переменных окружения
 load_dotenv()
-DATABASE_URL = os.getenv('DATABASE_URL')  # Render предоставит эту переменную для Postgres
+DATABASE_URL = os.getenv('DATABASE_URL')
 ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
+TOKEN = os.getenv('TOKEN')
+GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID')
+SERVER_URL = os.getenv('SERVER_URL')
+
+# Инициализация бота
+bot = telebot.TeleBot(TOKEN)
 
 def get_db():
     if 'db' not in g:
@@ -38,12 +45,53 @@ with app.app_context():
     cursor = db.cursor()
     with app.open_resource('schema.sql', mode='r') as f:
         sql_script = f.read()
-        # Разделяем команды по точке с запятой и выполняем каждую
         commands = [cmd.strip() for cmd in sql_script.split(';') if cmd.strip()]
         for cmd in commands:
             cursor.execute(cmd)
     db.commit()
     cursor.close()
+
+# Обработчики команд бота
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    app.logger.info(f"Received /start from {message.chat.id}")
+    bot.reply_to(message, "Бот запущен. Используйте /registration для начала.")
+
+@bot.message_handler(commands=['registration'])
+def handle_registration(message):
+    user_id = message.from_user.id
+    name = message.from_user.first_name
+    app.logger.info(f"Registration attempt from {user_id}")
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
+        if not cursor.fetchone():
+            cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
+            db.commit()
+            bot.reply_to(message, "Вы зарегистрированы!")
+        else:
+            bot.reply_to(message, "Вы уже зарегистрированы!")
+        cursor.close()
+    except Exception as e:
+        app.logger.error(f"Registration error: {str(e)}")
+        bot.reply_to(message, f"Ошибка регистрации: {str(e)}")
+
+# Регистрация вебхука
+WEBHOOK_URL = f"{SERVER_URL}/webhook"
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    app.logger.info("Webhook received")
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return '', 200
+
+# Установка вебхука при старте
+with app.app_context():
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+    app.logger.info(f"Webhook set to {WEBHOOK_URL}")
 
 # API-эндпоинты
 @app.route('/api/register', methods=['POST'])
@@ -51,6 +99,8 @@ def register():
     data = request.json
     user_id = data.get('user_id')
     name = data.get('name')
+    if not user_id or not name:
+        return jsonify({'status': 'error', 'message': 'Missing user_id or name'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
@@ -66,13 +116,21 @@ def start_tour():
     data = request.json
     mode = data.get('mode')
     name = data.get('name')
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-15', mode))
-    db.commit()
-    tour_id = cursor.lastrowid
-    cursor.close()
-    return jsonify({'status': 'success', 'tour_id': tour_id})
+    if not mode or not name:
+        app.logger.error(f"Invalid request data: mode={mode}, name={name}")
+        return jsonify({'status': 'error', 'message': 'Missing mode or name'}), 400
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-15', mode))
+        db.commit()
+        tour_id = cursor.lastrowid
+        cursor.close()
+        app.logger.info(f"Tour started: id={tour_id}, name={name}, mode={mode}")
+        return jsonify({'status': 'success', 'tour_id': tour_id})
+    except Exception as e:
+        app.logger.error(f"Error starting tour: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/submit_answer', methods=['POST'])
 def submit_answer():
@@ -81,6 +139,8 @@ def submit_answer():
     tour_id = data.get('tour_id')
     points = data.get('points', 0)
     answer = data.get('answer')
+    if not user_id or not tour_id or answer is None:
+        return jsonify({'status': 'error', 'message': 'Missing user_id, tour_id, or answer'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('INSERT INTO results (player_id, tour_id, points, answer) VALUES (%s, %s, %s, %s)', (user_id, tour_id, points, answer))
@@ -93,6 +153,8 @@ def end_tour():
     data = request.json
     tour_id = data.get('tour_id')
     correct_answer = data.get('correct_answer')
+    if not tour_id or correct_answer is None:
+        return jsonify({'status': 'error', 'message': 'Missing tour_id or correct_answer'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
@@ -114,6 +176,8 @@ def current_tour():
 @app.route('/api/tour_answers', methods=['GET'])
 def tour_answers():
     tour_id = request.args.get('tour_id')
+    if not tour_id:
+        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('SELECT p.name, r.answer FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
@@ -124,6 +188,8 @@ def tour_answers():
 @app.route('/api/tour_results', methods=['GET'])
 def tour_results():
     tour_id = request.args.get('tour_id')
+    if not tour_id:
+        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('SELECT p.name, r.answer, r.points FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
