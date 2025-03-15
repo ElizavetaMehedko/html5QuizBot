@@ -5,9 +5,11 @@ import os
 from dotenv import load_dotenv
 import logging
 
+
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-app = Flask(__name__)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+app.logger.debug("Starting Flask server...")
+
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Загрузка переменных окружения
