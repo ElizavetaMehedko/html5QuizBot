@@ -54,12 +54,10 @@ with app.app_context():
     db.commit()
     cursor.close()
 
-# Обработчики команд бота
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    app.logger.info(f"Received /start from {message.chat.id}")
-    if str(message.chat.id) == ADMIN_CHAT_ID:
-        # Очистка базы данных
+# Обработчики команд (регистрация вручную)
+def handle_message(message):
+    app.logger.info(f"Received message from {message.chat.id}: {message.text}")
+    if message.text == '/start' and str(message.chat.id) == ADMIN_CHAT_ID:
         try:
             db = get_db()
             cursor = db.cursor()
@@ -71,38 +69,26 @@ def handle_start(message):
         except Exception as e:
             app.logger.error(f"Error clearing database: {str(e)}")
         bot.reply_to(message, "Бот запущен. База данных очищена. Используйте /registration для начала.")
-    else:
+    elif message.text == '/start':
         bot.reply_to(message, "Бот активен. Ожидайте команды администратора.")
-
-@bot.message_handler(commands=['registration'])
-def handle_registration(message):
-    app.logger.info(f"Received /registration from {message.chat.id}")
-    if str(message.chat.id) != ADMIN_CHAT_ID:
+    elif message.text == '/registration' and str(message.chat.id) == ADMIN_CHAT_ID:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", url=f"{WEBAPP_URL}"))
+        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
+        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
+    elif message.text == '/registration':
         bot.reply_to(message, "Только администратор может начать регистрацию.")
-        return
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", url=f"{WEBAPP_URL}"))
-    msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
-    bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
-
-@bot.message_handler(commands=['endregistration'])
-def end_registration(message):
-    app.logger.info(f"Received /endregistration from {message.chat.id}")
-    if str(message.chat.id) != ADMIN_CHAT_ID:
+    elif message.text == '/endregistration' and str(message.chat.id) == ADMIN_CHAT_ID:
+        bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
+    elif message.text == '/endregistration':
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
-        return
-    bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
-
-@bot.message_handler(commands=['play'])
-def play(message):
-    app.logger.info(f"Received /play from {message.chat.id}")
-    if str(message.chat.id) != ADMIN_CHAT_ID:
+    elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
+        bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
+        bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы.")
+    elif message.text == '/play':
         bot.reply_to(message, "Только администратор может начать игру.")
-        return
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
-    bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
-    bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы.")
 
 # Регистрация вебхука
 WEBHOOK_URL = f"{SERVER_URL}/webhook"
@@ -112,9 +98,8 @@ def webhook():
     json_string = request.get_data().decode('utf-8')
     app.logger.debug(f"Webhook data: {json_string}")
     update = telebot.types.Update.de_json(json_string)
-    if update:
-        app.logger.debug(f"Processing update: {update.message.text if update.message else 'No message'}")
-        bot.process_new_updates([update])
+    if update and update.message:
+        handle_message(update.message)
     return '', 200
 
 # Установка вебхука при старте
@@ -192,6 +177,8 @@ def end_tour():
     correct_answer = data.get('correct_answer')
     if not tour_id:
         return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
+    if correct_answer is None:
+        return jsonify({'status': 'error', 'message': 'Missing correct_answer'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
