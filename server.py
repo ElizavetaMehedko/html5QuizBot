@@ -26,6 +26,7 @@ SERVER_URL = os.getenv('SERVER_URL')
 
 # Инициализация бота
 bot = telebot.TeleBot(TOKEN)
+app.logger.info("Bot initialized with token")
 
 def get_db():
     if 'db' not in g:
@@ -134,7 +135,6 @@ def start_tour():
         app.logger.error("Missing user_id")
         return jsonify({'status': 'error', 'message': 'Missing user_id'}), 400
     try:
-        # Проверяем, является ли пользователь админом
         if str(user_id) != ADMIN_CHAT_ID:
             app.logger.warning(f"Unauthorized attempt to start tour by user {user_id}")
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
