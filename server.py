@@ -35,9 +35,15 @@ app.teardown_appcontext(close_db)
 # Инициализация базы данных
 with app.app_context():
     db = get_db()
+    cursor = db.cursor()
     with app.open_resource('schema.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
+        sql_script = f.read()
+        # Разделяем команды по точке с запятой и выполняем каждую
+        commands = [cmd.strip() for cmd in sql_script.split(';') if cmd.strip()]
+        for cmd in commands:
+            cursor.execute(cmd)
     db.commit()
+    cursor.close()
 
 # API-эндпоинты
 @app.route('/api/register', methods=['POST'])
