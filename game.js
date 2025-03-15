@@ -33,7 +33,7 @@ class AdminMainScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard') // Исправлено
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -85,7 +85,7 @@ class AdminTourSelectionScene extends Phaser.Scene {
         let mode = 'buttons';
         if (tour === 'Числа') mode = 'numbers';
         else if (tour === 'Кто быстрее') mode = 'fastest';
-        fetch('http://localhost:5000/api/start_tour', {
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/start_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: mode, name: tour })
         })
@@ -107,7 +107,7 @@ class AdminTourSelectionScene extends Phaser.Scene {
         });
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -156,7 +156,7 @@ class AdminGameScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     updateAnswers() {
-        fetch('http://localhost:5000/api/tour_answers?tour_id=' + this.registry.get('tourId'))
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/tour_answers?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Ответы игроков:\n';
@@ -170,7 +170,7 @@ class AdminGameScene extends Phaser.Scene {
             });
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -226,7 +226,7 @@ class AdminEndTourScene extends Phaser.Scene {
             });
             return;
         }
-        fetch('http://localhost:5000/api/end_tour', {
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/end_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tour_id: this.registry.get('tourId'), correct_answer: correctFrame })
         })
@@ -245,7 +245,7 @@ class AdminEndTourScene extends Phaser.Scene {
         });
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -269,7 +269,7 @@ class AdminTourResultsScene extends Phaser.Scene {
         this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
-        fetch('http://localhost:5000/api/tour_results?tour_id=' + this.registry.get('tourId'))
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/tour_results?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Результаты:\n';
@@ -302,7 +302,7 @@ class AdminTourResultsScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -341,15 +341,29 @@ class AdminPointsScene extends Phaser.Scene {
                 else if (text === '+0.25') points += 0.25;
                 else if (text === 'Отправить') {
                     const playerName = input.node.value;
-                    fetch('http://localhost:5000/api/submit_answer', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: 0, tour_id: 0, points: points, answer: playerName })
+                    const user = window.Telegram.WebApp.initDataUnsafe.user; // Получаем данные пользователя
+                    fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/submit_answer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            user_id: user ? user.id : 0, // Используем реальный user_id
+                            tour_id: this.registry.get('tourId') || 0, // Используем текущий tour_id
+                            points: points, 
+                            answer: playerName 
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                        return response.json();
                     })
                     .then(() => {
                         this.scene.start('AdminMainScene');
                     })
                     .catch(error => {
                         console.error("Error submitting points:", error);
+                        this.add.text(width * 0.05, height * 0.4, 'Ошибка при начислении баллов!', { 
+                            fontSize: '20px', color: '#ff0000'
+                        });
                     });
                 }
             });
@@ -373,7 +387,7 @@ class AdminPointsScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('http://localhost:5000/api/leaderboard')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -402,13 +416,33 @@ class PlayerWaitingScene extends Phaser.Scene {
         if (user && user.id === 167509764) {
             console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
             this.scene.start('AdminMainScene');
+        } else if (user) {
+            // Регистрация игрока
+            fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id, name: user.first_name || 'Unknown' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Player registered:", data);
+                this.checkTour();
+                this.time.addEvent({ delay: 2000, callback: this.checkTour, callbackScope: this, loop: true });
+            })
+            .catch(error => {
+                console.error("Error registering player:", error);
+                this.add.text(width * 0.05, height * 0.15, 'Ошибка регистрации!', { 
+                    fontSize: '20px', color: '#ff0000'
+                });
+            });
         } else {
-            this.checkTour(); // Проверить сразу при загрузке
-            this.time.addEvent({ delay: 2000, callback: this.checkTour, callbackScope: this, loop: true });
+            this.add.text(width * 0.05, height * 0.15, 'Ошибка: Нет данных пользователя!', { 
+                fontSize: '20px', color: '#ff0000'
+            });
         }
     }
     checkTour() {
-        fetch('http://localhost:5000/api/current_tour')
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/current_tour')
             .then(response => response.json())
             .then(data => {
                 if (data.id) {
@@ -433,7 +467,7 @@ class PlayerGameScene extends Phaser.Scene {
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
         if (this.registry.get('mode') === 'buttons') this.startButtonsMode();
-        this.checkTourEnded(); // Проверить сразу при загрузке
+        this.checkTourEnded();
         this.time.addEvent({ delay: 2000, callback: this.checkTourEnded, callbackScope: this, loop: true });
     }
     startButtonsMode() {
@@ -447,7 +481,7 @@ class PlayerGameScene extends Phaser.Scene {
     handleButtonClick(answer) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         if (!user) return;
-        fetch('http://localhost:5000/api/submit_answer', {
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/submit_answer', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points: 0, answer })
         })
@@ -465,7 +499,7 @@ class PlayerGameScene extends Phaser.Scene {
         });
     }
     checkTourEnded() {
-        fetch('http://localhost:5000/api/tour_status?tour_id=' + this.registry.get('tourId'))
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/tour_status?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 if (data.ended) {
@@ -485,7 +519,7 @@ class PlayerTourResultsScene extends Phaser.Scene {
         this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
-        fetch('http://localhost:5000/api/tour_results?tour_id=' + this.registry.get('tourId'))
+        fetch('https://e2e6-185-186-156-118.ngrok-free.app/api/tour_results?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Результаты:\n';
