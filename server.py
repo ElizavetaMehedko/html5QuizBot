@@ -5,11 +5,14 @@ import os
 from dotenv import load_dotenv
 import logging
 
+# Создание экземпляра Flask
+app = Flask(__name__)
 
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 app.logger.debug("Starting Flask server...")
 
+# Настройка CORS
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Загрузка переменных окружения
@@ -99,7 +102,7 @@ def current_tour():
     tour = cursor.fetchone()
     cursor.close()
     if tour:
-        return jsonify({'id': tour[0], 'name': tour[1], 'mode': tour[2]})
+        return jsonify({'id': tour[0], 'name': tour[1], 'mode': tour[2], 'status': 'active'})
     return jsonify({'id': None})
 
 @app.route('/api/tour_answers', methods=['GET'])
