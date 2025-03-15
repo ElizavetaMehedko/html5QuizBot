@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import logging
 import telebot
+from telebot import types
 
 # Создание экземпляра Flask
 app = Flask(__name__)
@@ -23,6 +24,7 @@ ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
 TOKEN = os.getenv('TOKEN')
 GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID')
 SERVER_URL = os.getenv('SERVER_URL')
+WEBAPP_URL = os.getenv('WEBAPP_URL', 'https://html5-quiz-bot.vercel.app')
 
 # Инициализация бота
 bot = telebot.TeleBot(TOKEN)
@@ -56,32 +58,51 @@ with app.app_context():
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     app.logger.info(f"Received /start from {message.chat.id}")
-    bot.reply_to(message, "Бот запущен. Используйте /registration для начала.")
+    if str(message.chat.id) == ADMIN_CHAT_ID:
+        # Очистка базы данных
+        try:
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute('DELETE FROM players')
+            cursor.execute('DELETE FROM tours')
+            cursor.execute('DELETE FROM results')
+            db.commit()
+            app.logger.info("Database cleared")
+        except Exception as e:
+            app.logger.error(f"Error clearing database: {str(e)}")
+        bot.reply_to(message, "Бот запущен. База данных очищена. Используйте /registration для начала.")
+    else:
+        bot.reply_to(message, "Бот активен. Ожидайте команды администратора.")
 
 @bot.message_handler(commands=['registration'])
 def handle_registration(message):
-    user_id = message.from_user.id
-    name = message.from_user.first_name
-    app.logger.info(f"Registration attempt from {user_id}")
-    try:
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
-        if not cursor.fetchone():
-            cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
-            db.commit()
-            bot.reply_to(message, "Вы зарегистрированы!")
-        else:
-            bot.reply_to(message, "Вы уже зарегистрированы!")
-        cursor.close()
-    except Exception as e:
-        app.logger.error(f"Registration error: {str(e)}")
-        bot.reply_to(message, f"Ошибка регистрации: {str(e)}")
+    app.logger.info(f"Received /registration from {message.chat.id}")
+    if str(message.chat.id) != ADMIN_CHAT_ID:
+        bot.reply_to(message, "Только администратор может начать регистрацию.")
+        return
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", url=f"{WEBAPP_URL}"))
+    msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
+    bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
 
-# Отладочный обработчик для всех сообщений
-@bot.message_handler(func=lambda message: True)
-def debug_message(message):
-    app.logger.debug(f"Received message: {message.text}, from chat: {message.chat.id}")
+@bot.message_handler(commands=['endregistration'])
+def end_registration(message):
+    app.logger.info(f"Received /endregistration from {message.chat.id}")
+    if str(message.chat.id) != ADMIN_CHAT_ID:
+        bot.reply_to(message, "Только администратор может завершить регистрацию.")
+        return
+    bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
+
+@bot.message_handler(commands=['play'])
+def play(message):
+    app.logger.info(f"Received /play from {message.chat.id}")
+    if str(message.chat.id) != ADMIN_CHAT_ID:
+        bot.reply_to(message, "Только администратор может начать игру.")
+        return
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
+    bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
+    bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы.")
 
 # Регистрация вебхука
 WEBHOOK_URL = f"{SERVER_URL}/webhook"
@@ -91,11 +112,9 @@ def webhook():
     json_string = request.get_data().decode('utf-8')
     app.logger.debug(f"Webhook data: {json_string}")
     update = telebot.types.Update.de_json(json_string)
-    if update and update.message:
-        app.logger.debug(f"Update contains message: {update.message.text}")
+    if update:
+        app.logger.debug(f"Processing update: {update.message.text if update.message else 'No message'}")
         bot.process_new_updates([update])
-    else:
-        app.logger.warning("No message in update")
     return '', 200
 
 # Установка вебхука при старте
@@ -171,8 +190,8 @@ def end_tour():
     data = request.json
     tour_id = data.get('tour_id')
     correct_answer = data.get('correct_answer')
-    if not tour_id or correct_answer is None:
-        return jsonify({'status': 'error', 'message': 'Missing tour_id or correct_answer'}), 400
+    if not tour_id:
+        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
@@ -220,7 +239,7 @@ def leaderboard():
     db = get_db()
     cursor = db.cursor()
     cursor.execute('SELECT id, name, total_points FROM players ORDER BY total_points DESC')
-    leaderboard = [{'id': row[0], 'name': row[1], 'total_points': row[2]} for row in cursor.fetchall()]
+    leaderboard = [{'id': row[0], 'name': row[1], 'total_points': row[2] or 0} for row in cursor.fetchall()]
     cursor.close()
     return jsonify({'leaderboard': leaderboard})
 
