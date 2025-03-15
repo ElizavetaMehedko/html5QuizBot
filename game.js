@@ -132,65 +132,90 @@ class AdminTourSelectionScene extends Phaser.Scene {
 }
 
 class AdminGameScene extends Phaser.Scene {
-    constructor() { super('AdminGameScene'); }
+    constructor() {
+        super('AdminGameScene');
+    }
+
+    preload() {
+        this.load.image('frame1', 'assets/frame1.png');
+        this.load.image('frame2', 'assets/frame2.png');
+        this.load.image('frame3', 'assets/frame3.png');
+        this.load.image('frame4', 'assets/frame4.png');
+    }
+
     create() {
-        this.cameras.main.setBackgroundColor('#333333');
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
         const tourName = this.registry.get('tourName');
-        this.add.text(width * 0.05, height * 0.05, tourName, { 
-            fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
+        this.add.text(width * 0.05, height * 0.05, `Тур: ${tourName}`, { fontSize: '20px', color: '#ffffff' });
+
+        // Отображение 4 кадров
+        const frameWidth = width * 0.2;
+        const frameHeight = height * 0.3;
+        const frames = [
+            this.add.image(width * 0.2, height * 0.3, 'frame1').setDisplaySize(frameWidth, frameHeight),
+            this.add.image(width * 0.4, height * 0.3, 'frame2').setDisplaySize(frameWidth, frameHeight),
+            this.add.image(width * 0.6, height * 0.3, 'frame3').setDisplaySize(frameWidth, frameHeight),
+            this.add.image(width * 0.8, height * 0.3, 'frame4').setDisplaySize(frameWidth, frameHeight)
+        ];
+
+        // Добавление текста с номерами под каждым кадром
+        frames.forEach((frame, index) => {
+            this.add.text(
+                frame.x - frameWidth / 4,
+                frame.y + frameHeight / 2 + 10,
+                `${index + 1}`,
+                { fontSize: '16px', color: '#ffffff' }
+            );
         });
-        this.answersText = this.add.text(width * 0.05, height * 0.15, 'Ожидание ответов...', { 
-            fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
-        });
-        this.updateAnswers();
-        this.time.addEvent({ delay: 2000, callback: this.updateAnswers, callbackScope: this, loop: true });
-        this.addAdminPanel();
-    }
-    addAdminPanel() {
-        const buttons = ['Выбор тура', 'Конец тура', 'Таблица лидеров', 'Дополнительные баллы'];
-        buttons.forEach((text, index) => {
-            const col = index % 2;
-            const row = Math.floor(index / 2);
-            this.add.text(width * 0.05 + col * (width * 0.45), height * 0.75 + row * 60, text, { 
-                fontSize: '20px', color: '#ffffff', backgroundColor: '#666666'
-            }).setPadding(10).setInteractive().on('pointerdown', () => this.handleAdminAction(text));
-        });
-    }
-    handleAdminAction(action) {
-        if (action === 'Выбор тура') this.scene.start('AdminTourSelectionScene');
-        else if (action === 'Конец тура') this.scene.start('AdminEndTourScene');
-        else if (action === 'Таблица лидеров') this.showLeaderboard();
-        else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
-    }
-    updateAnswers() {
-        fetch('https://telegram-quiz-game.onrender.com/api/tour_answers?tour_id=' + this.registry.get('tourId'))
-            .then(response => response.json())
-            .then(data => {
-                let text = 'Ответы игроков:\n';
-                data.answers.forEach(answer => {
-                    text += `${answer.name}: Кадр ${answer.answer}\n`;
-                });
-                this.answersText.setText(text);
-            })
-            .catch(error => {
-                console.error("Error updating answers:", error);
+
+        // Добавление текста
+        this.add.text(width * 0.05, height * 0.5, 'Выберите лишний кадр:', { fontSize: '20px', color: '#ffffff' });
+
+        // Добавление кнопок для выбора кадра
+        const buttonWidth = width * 0.15;
+        const buttonHeight = height * 0.1;
+        const buttonSpacing = width * 0.05;
+
+        for (let i = 1; i <= 4; i++) {
+            const buttonX = width * 0.2 + (i - 1) * (buttonWidth + buttonSpacing);
+            const buttonY = height * 0.65;
+
+            const button = this.add.rectangle(buttonX, buttonY, buttonWidth, buttonHeight, 0x00ff00)
+                .setStrokeStyle(2, 0x000000)
+                .setInteractive();
+
+            this.add.text(buttonX - 10, buttonY - 10, `${i}`, { fontSize: '20px', color: '#000000' });
+
+            button.on('pointerdown', () => {
+                this.submitAnswer(i);
             });
+        }
     }
-    showLeaderboard() {
-        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
-            .then(response => response.json())
-            .then(data => {
-                let text = '🏆 Таблица лидеров:\n';
-                data.leaderboard.forEach((player, i) => {
-                    text += `${i + 1}. ${player.name}: ${player.total_points} баллов\n`;
+
+    submitAnswer(frameNumber) {
+        const tourId = this.registry.get('tourId');
+        fetch('https://html5quizbot.onrender.com/api/end_tour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tour_id: tourId, correct_answer: frameNumber })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                this.scene.start('AdminResultsScene');
+            } else {
+                this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.8, 'Ошибка при завершении тура!', {
+                    fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
                 });
-                this.add.text(width * 0.05, height * 0.2, text, { 
-                    fontSize: '20px', color: '#ffffff', wordWrap: { width: width * 0.9 }
-                });
-            })
-            .catch(error => {
-                console.error("Error fetching leaderboard:", error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.add.text(this.cameras.main.width * 0.05, this.cameras.main.height * 0.8, 'Ошибка при завершении тура!', {
+                fontSize: '20px', color: '#ff0000', wordWrap: { width: this.cameras.main.width * 0.9 }
             });
+        });
     }
 }
 
