@@ -1,120 +1,133 @@
-from flask import Flask, request, jsonify
-import sqlite3
-from datetime import datetime
+from flask import Flask, request, jsonify, g
+from flask_cors import CORS
+import psycopg2
+import os
+from dotenv import load_dotenv
+import logging
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Загрузка переменных окружения
+load_dotenv()
+DATABASE_URL = os.getenv('DATABASE_URL')  # Render предоставит эту переменную для Postgres
+ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
 
 def get_db():
-    conn = sqlite3.connect('quiz.db', check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    if 'db' not in g:
+        g.db = psycopg2.connect(DATABASE_URL)
+    return g.db
 
-def init_db():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS players (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                total_points REAL DEFAULT 0
-            )''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS tours (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                date TEXT NOT NULL,
-                mode TEXT NOT NULL,
-                correct_answer TEXT,
-                status TEXT DEFAULT 'active'
-            )''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_id INTEGER NOT NULL,
-                tour_id INTEGER NOT NULL,
-                points REAL NOT NULL,
-                answer TEXT,
-                FOREIGN KEY (player_id) REFERENCES players (id),
-                FOREIGN KEY (tour_id) REFERENCES tours (id)
-            )''')
-        conn.commit()
+def close_db(e=None):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
-init_db()
+app.teardown_appcontext(close_db)
 
+# Инициализация базы данных
+with app.app_context():
+    db = get_db()
+    with app.open_resource('schema.sql', mode='r') as f:
+        db.cursor().executescript(f.read())
+    db.commit()
+
+# API-эндпоинты
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
-    user_id = data['user_id']
-    name = data['name']
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('INSERT OR IGNORE INTO players (id, name) VALUES (?, ?)', (user_id, name))
-        conn.commit()
+    user_id = data.get('user_id')
+    name = data.get('name')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
+    player = cursor.fetchone()
+    if not player:
+        cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
+        db.commit()
+    cursor.close()
     return jsonify({'status': 'success'})
 
-@app.route('/api/current_tour', methods=['GET'])
-def get_current_tour():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM tours WHERE status = "active" ORDER BY id DESC LIMIT 1')
-        tour = cursor.fetchone()
-        if tour:
-            return jsonify({
-                'id': tour['id'],
-                'mode': tour['mode'],
-                'correct_answer': tour['correct_answer']
-            })
-        return jsonify({'status': 'no_active_tour'})
+@app.route('/api/start_tour', methods=['POST'])
+def start_tour():
+    data = request.json
+    mode = data.get('mode')
+    name = data.get('name')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-15', mode))
+    db.commit()
+    tour_id = cursor.lastrowid
+    cursor.close()
+    return jsonify({'status': 'success', 'tour_id': tour_id})
 
 @app.route('/api/submit_answer', methods=['POST'])
 def submit_answer():
     data = request.json
-    user_id = data['user_id']
-    tour_id = data['tour_id']
-    points = data['points']
-    answer = data['answer']
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('UPDATE players SET total_points = total_points + ? WHERE id = ?', (points, user_id))
-        cursor.execute('INSERT INTO results (player_id, tour_id, points, answer) VALUES (?, ?, ?, ?)', 
-                       (user_id, tour_id, points, answer))
-        conn.commit()
+    user_id = data.get('user_id')
+    tour_id = data.get('tour_id')
+    points = data.get('points', 0)
+    answer = data.get('answer')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('INSERT INTO results (player_id, tour_id, points, answer) VALUES (%s, %s, %s, %s)', (user_id, tour_id, points, answer))
+    db.commit()
+    cursor.close()
     return jsonify({'status': 'success'})
 
 @app.route('/api/end_tour', methods=['POST'])
 def end_tour():
     data = request.json
-    tour_id = data['tour_id']
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('UPDATE tours SET status = "finished" WHERE id = ?', (tour_id,))
-        cursor.execute('SELECT player_id, points, answer FROM results WHERE tour_id = ?', (tour_id,))
-        results = cursor.fetchall()
-        conn.commit()
-    return jsonify({'results': [dict(row) for row in results]})
+    tour_id = data.get('tour_id')
+    correct_answer = data.get('correct_answer')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
+    db.commit()
+    cursor.close()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/current_tour', methods=['GET'])
+def current_tour():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, name, mode FROM tours WHERE status = %s LIMIT 1', ('active',))
+    tour = cursor.fetchone()
+    cursor.close()
+    if tour:
+        return jsonify({'id': tour[0], 'name': tour[1], 'mode': tour[2]})
+    return jsonify({'id': None})
+
+@app.route('/api/tour_answers', methods=['GET'])
+def tour_answers():
+    tour_id = request.args.get('tour_id')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT p.name, r.answer FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
+    answers = [{'name': row[0], 'answer': row[1]} for row in cursor.fetchall()]
+    cursor.close()
+    return jsonify({'answers': answers})
+
+@app.route('/api/tour_results', methods=['GET'])
+def tour_results():
+    tour_id = request.args.get('tour_id')
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT p.name, r.answer, r.points FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
+    results = [{'name': row[0], 'answer': row[1], 'points': row[2]} for row in cursor.fetchall()]
+    cursor.close()
+    return jsonify({'results': results})
 
 @app.route('/api/leaderboard', methods=['GET'])
 def leaderboard():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT name, total_points FROM players ORDER BY total_points DESC')
-        players = cursor.fetchall()
-    return jsonify({'leaderboard': [dict(row) for row in players]})
-
-@app.route('/api/start_tour', methods=['POST'])
-def start_tour():
-    data = request.json
-    mode = data['mode']
-    name = data['name']
-    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('INSERT INTO tours (name, date, mode, status) VALUES (?, ?, ?, ?)', 
-                       (name, date, mode, 'active'))
-        conn.commit()
-        cursor.execute('SELECT last_insert_rowid()')
-        tour_id = cursor.fetchone()[0]
-    return jsonify({'tour_id': tour_id})
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT id, name, total_points FROM players ORDER BY total_points DESC')
+    leaderboard = [{'id': row[0], 'name': row[1], 'total_points': row[2]} for row in cursor.fetchall()]
+    cursor.close()
+    return jsonify({'leaderboard': leaderboard})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
