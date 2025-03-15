@@ -33,7 +33,7 @@ class AdminMainScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -85,7 +85,7 @@ class AdminTourSelectionScene extends Phaser.Scene {
         let mode = 'buttons';
         if (tour === 'Числа') mode = 'numbers';
         else if (tour === 'Кто быстрее') mode = 'fastest';
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/start_tour', {
+        fetch('https://telegram-quiz-game.onrender.com/api/start_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: mode, name: tour })
         })
@@ -107,7 +107,7 @@ class AdminTourSelectionScene extends Phaser.Scene {
         });
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -156,7 +156,7 @@ class AdminGameScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     updateAnswers() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/tour_answers?tour_id=' + this.registry.get('tourId'))
+        fetch('https://telegram-quiz-game.onrender.com/api/tour_answers?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Ответы игроков:\n';
@@ -170,7 +170,7 @@ class AdminGameScene extends Phaser.Scene {
             });
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -226,7 +226,7 @@ class AdminEndTourScene extends Phaser.Scene {
             });
             return;
         }
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/end_tour', {
+        fetch('https://telegram-quiz-game.onrender.com/api/end_tour', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tour_id: this.registry.get('tourId'), correct_answer: correctFrame })
         })
@@ -245,7 +245,7 @@ class AdminEndTourScene extends Phaser.Scene {
         });
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -269,7 +269,7 @@ class AdminTourResultsScene extends Phaser.Scene {
         this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/tour_results?tour_id=' + this.registry.get('tourId'))
+        fetch('https://telegram-quiz-game.onrender.com/api/tour_results?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Результаты:\n';
@@ -302,7 +302,7 @@ class AdminTourResultsScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -342,7 +342,7 @@ class AdminPointsScene extends Phaser.Scene {
                 else if (text === 'Отправить') {
                     const playerName = input.node.value;
                     const user = window.Telegram.WebApp.initDataUnsafe.user;
-                    fetch('https://4051-185-186-156-118.ngrok-free.app/api/submit_answer', {
+                    fetch('https://telegram-quiz-game.onrender.com/api/submit_answer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -387,7 +387,7 @@ class AdminPointsScene extends Phaser.Scene {
         else if (action === 'Дополнительные баллы') this.scene.start('AdminPointsScene');
     }
     showLeaderboard() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/leaderboard')
+        fetch('https://telegram-quiz-game.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
                 let text = '🏆 Таблица лидеров:\n';
@@ -417,7 +417,7 @@ class PlayerWaitingScene extends Phaser.Scene {
             console.log("Admin detected in PlayerWaitingScene, switching to AdminMainScene");
             this.scene.start('AdminMainScene');
         } else if (user) {
-            fetch('https://4051-185-186-156-118.ngrok-free.app/api/register', {
+            fetch('https://telegram-quiz-game.onrender.com/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: user.id, name: user.first_name || 'Unknown' })
@@ -441,7 +441,7 @@ class PlayerWaitingScene extends Phaser.Scene {
         }
     }
     checkTour() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/current_tour')
+        fetch('https://telegram-quiz-game.onrender.com/api/current_tour')
             .then(response => response.json())
             .then(data => {
                 if (data.id) {
@@ -480,12 +480,15 @@ class PlayerGameScene extends Phaser.Scene {
     handleButtonClick(answer) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         if (!user) return;
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/submit_answer', {
+        fetch('https://telegram-quiz-game.onrender.com/api/submit_answer', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id, tour_id: this.registry.get('tourId'), points: 0, answer })
         })
         .then(response => {
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(() => {
             this.add.text(width * 0.05, height * 0.75, 'Ответ принят!', { 
                 fontSize: '20px', color: '#00ff00'
             });
@@ -498,10 +501,10 @@ class PlayerGameScene extends Phaser.Scene {
         });
     }
     checkTourEnded() {
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/tour_status?tour_id=' + this.registry.get('tourId'))
+        fetch('https://telegram-quiz-game.onrender.com/api/current_tour')
             .then(response => response.json())
             .then(data => {
-                if (data.ended) {
+                if (data.id && data.status === 'finished') {
                     this.scene.start('PlayerTourResultsScene');
                 }
             })
@@ -518,7 +521,7 @@ class PlayerTourResultsScene extends Phaser.Scene {
         this.add.text(width * 0.05, height * 0.05, 'Результаты тура:', { 
             fontSize: '28px', color: '#ffffff', wordWrap: { width: width * 0.9 }
         });
-        fetch('https://4051-185-186-156-118.ngrok-free.app/api/tour_results?tour_id=' + this.registry.get('tourId'))
+        fetch('https://telegram-quiz-game.onrender.com/api/tour_results?tour_id=' + this.registry.get('tourId'))
             .then(response => response.json())
             .then(data => {
                 let text = 'Результаты:\n';
