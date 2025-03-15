@@ -54,7 +54,7 @@ with app.app_context():
     db.commit()
     cursor.close()
 
-# Обработчики команд (регистрация вручную)
+# Обработчики команд
 def handle_message(message):
     app.logger.info(f"Received message from {message.chat.id}: {message.text}")
     if message.text == '/start' and str(message.chat.id) == ADMIN_CHAT_ID:
@@ -73,9 +73,9 @@ def handle_message(message):
         bot.reply_to(message, "Бот активен. Ожидайте команды администратора.")
     elif message.text == '/registration' and str(message.chat.id) == ADMIN_CHAT_ID:
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", url=f"{WEBAPP_URL}"))
-        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
-        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
+        markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", callback_data="register"))
+        bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
+        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID}")
     elif message.text == '/registration':
         bot.reply_to(message, "Только администратор может начать регистрацию.")
     elif message.text == '/endregistration' and str(message.chat.id) == ADMIN_CHAT_ID:
@@ -90,6 +90,28 @@ def handle_message(message):
     elif message.text == '/play':
         bot.reply_to(message, "Только администратор может начать игру.")
 
+# Обработчик коллбэков
+def handle_callback_query(callback_query):
+    app.logger.info(f"Received callback from {callback_query.from_user.id}: {callback_query.data}")
+    if callback_query.data == "register":
+        user_id = callback_query.from_user.id
+        name = callback_query.from_user.first_name or "Unknown"
+        try:
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
+            player = cursor.fetchone()
+            if not player:
+                cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
+                db.commit()
+                bot.answer_callback_query(callback_query.id, "Регистрация успешна!")
+            else:
+                bot.answer_callback_query(callback_query.id, "Вы уже зарегистрированы!")
+            cursor.close()
+        except Exception as e:
+            app.logger.error(f"Error registering user {user_id}: {str(e)}")
+            bot.answer_callback_query(callback_query.id, "Ошибка регистрации!")
+
 # Регистрация вебхука
 WEBHOOK_URL = f"{SERVER_URL}/webhook"
 @app.route('/webhook', methods=['POST'])
@@ -100,6 +122,8 @@ def webhook():
     update = telebot.types.Update.de_json(json_string)
     if update and update.message:
         handle_message(update.message)
+    if update and update.callback_query:
+        handle_callback_query(update.callback_query)
     return '', 200
 
 # Установка вебхука при старте
@@ -177,8 +201,6 @@ def end_tour():
     correct_answer = data.get('correct_answer')
     if not tour_id:
         return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
-    if correct_answer is None:
-        return jsonify({'status': 'error', 'message': 'Missing correct_answer'}), 400
     db = get_db()
     cursor = db.cursor()
     cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
