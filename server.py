@@ -30,6 +30,9 @@ WEBAPP_URL = os.getenv('WEBAPP_URL', 'https://html5-quiz-bot.vercel.app')
 bot = telebot.TeleBot(TOKEN)
 app.logger.info("Bot initialized with token")
 
+# Глобальная переменная для хранения message_id
+registration_message_id = None
+
 def get_db():
     if 'db' not in g:
         g.db = psycopg2.connect(DATABASE_URL)
@@ -54,8 +57,18 @@ with app.app_context():
     db.commit()
     cursor.close()
 
+# Получение списка зарегистрированных игроков
+def get_registered_players():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute('SELECT name FROM players')
+    players = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    return players
+
 # Обработчики команд
 def handle_message(message):
+    global registration_message_id
     app.logger.info(f"Received message from {message.chat.id}: {message.text}")
     if message.text == '/start' and str(message.chat.id) == ADMIN_CHAT_ID:
         try:
@@ -74,19 +87,33 @@ def handle_message(message):
     elif message.text == '/registration' and str(message.chat.id) == ADMIN_CHAT_ID:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", callback_data="register"))
-        bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
-        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID}")
+        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:\nАдмин, завершайте регистрацию командой /endregistration", reply_markup=markup)
+        registration_message_id = msg.message_id
+        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}")
     elif message.text == '/registration':
         bot.reply_to(message, "Только администратор может начать регистрацию.")
     elif message.text == '/endregistration' and str(message.chat.id) == ADMIN_CHAT_ID:
+        if registration_message_id:
+            try:
+                bot.delete_message(GROUP_CHAT_ID, registration_message_id)
+                app.logger.info(f"Deleted registration message {registration_message_id}")
+            except Exception as e:
+                app.logger.error(f"Error deleting message: {str(e)}")
         bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
+        # Уведомление админу
+        players = get_registered_players()
+        if players:
+            player_list = "\n".join(players)
+            bot.send_message(ADMIN_CHAT_ID, f"Регистрация завершена!\nЗарегистрированные игроки:\n{player_list}\nЗапустите игру командой /play")
+        else:
+            bot.send_message(ADMIN_CHAT_ID, "Регистрация завершена, но никто не зарегистрировался.\nЗапустите игру командой /play, если хотите продолжить.")
     elif message.text == '/endregistration':
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
         bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
-        bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы.")
+        bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.")
     elif message.text == '/play':
         bot.reply_to(message, "Только администратор может начать игру.")
 
@@ -105,6 +132,8 @@ def handle_callback_query(callback_query):
                 cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
                 db.commit()
                 bot.answer_callback_query(callback_query.id, "Регистрация успешна!")
+                # Уведомление админу
+                bot.send_message(ADMIN_CHAT_ID, f"Пользователь {name} (ID: {user_id}) зарегистрировался.")
             else:
                 bot.answer_callback_query(callback_query.id, "Вы уже зарегистрированы!")
             cursor.close()
