@@ -77,14 +77,24 @@ def handle_registration(message):
         app.logger.error(f"Registration error: {str(e)}")
         bot.reply_to(message, f"Ошибка регистрации: {str(e)}")
 
+# Отладочный обработчик для всех сообщений
+@bot.message_handler(func=lambda message: True)
+def debug_message(message):
+    app.logger.debug(f"Received message: {message.text}, from chat: {message.chat.id}")
+
 # Регистрация вебхука
 WEBHOOK_URL = f"{SERVER_URL}/webhook"
 @app.route('/webhook', methods=['POST'])
 def webhook():
     app.logger.info("Webhook received")
     json_string = request.get_data().decode('utf-8')
+    app.logger.debug(f"Webhook data: {json_string}")
     update = telebot.types.Update.de_json(json_string)
-    bot.process_new_updates([update])
+    if update and update.message:
+        app.logger.debug(f"Update contains message: {update.message.text}")
+        bot.process_new_updates([update])
+    else:
+        app.logger.warning("No message in update")
     return '', 200
 
 # Установка вебхука при старте
