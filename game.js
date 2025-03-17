@@ -1,9 +1,11 @@
-// Подключение Telegram WebApp API
+const ADMIN_CHAT_ID = '167509764'; // Замените на ваш реальный ID администратора
+
 const Telegram = window.Telegram;
 
-// Инициализация Telegram WebApp
 Telegram.WebApp.ready();
 const initData = Telegram.WebApp.initDataUnsafe;
+
+console.log("Full initData before scene:", JSON.stringify(initData, null, 2));
 
 class MainScene extends Phaser.Scene {
     constructor() {
@@ -11,19 +13,16 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        console.log("MainScene create called"); // Добавляем отладочный лог
+        console.log("MainScene create called");
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Логирование для отладки
-        console.log("Telegram WebApp initData:", initData);
+        console.log("Telegram WebApp initData in create:", JSON.stringify(initData, null, 2));
 
-        // Проверка данных пользователя
         if (!initData || !initData.user) {
-            console.error("No user data available");
+            console.error("No user data available. Full initData:", JSON.stringify(initData, null, 2));
             this.add.text(width * 0.5, height * 0.5, 'Ошибка: Нет данных пользователя.\nУбедитесь, что вы открыли приложение через Telegram.', { fontSize: '20px', color: '#ff0000', align: 'center' })
                 .setOrigin(0.5);
             return;
@@ -34,7 +33,6 @@ class MainScene extends Phaser.Scene {
         this.registry.set('userId', userId);
         this.registry.set('userName', userName);
 
-        // Проверка, зарегистрирован ли пользователь
         fetch('https://html5quizbot.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
@@ -46,13 +44,11 @@ class MainScene extends Phaser.Scene {
                     return;
                 }
 
-                // Отображcidение ожидания тура
                 this.add.text(width * 0.5, height * 0.3, `Привет, ${userName}!`, { fontSize: '24px', color: '#ffffff' })
                     .setOrigin(0.5);
                 this.waitText = this.add.text(width * 0.5, height * 0.5, 'Ожидайте начала тура...', { fontSize: '20px', color: '#ffffff' })
                     .setOrigin(0.5);
 
-                // Проверка текущего тура
                 this.checkTour();
             })
             .catch(error => {
@@ -104,13 +100,10 @@ class AdminGameScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const tourName = this.registry.get('tourName');
 
-        // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Текст тура
         this.add.text(width * 0.05, height * 0.05, `Тур: ${tourName}`, { fontSize: '20px', color: '#ffffff' });
 
-        // Отображение 4 кадров
         const frameWidth = width * 0.2;
         const frameHeight = height * 0.3;
         const frames = [
@@ -120,15 +113,12 @@ class AdminGameScene extends Phaser.Scene {
             this.add.image(width * 0.8, height * 0.3, 'frame4').setDisplaySize(frameWidth, frameHeight)
         ];
 
-        // Номера под кадрами
         frames.forEach((frame, index) => {
             this.add.text(frame.x - frameWidth / 4, frame.y + frameHeight / 2 + 10, `${index + 1}`, { fontSize: '16px', color: '#ffffff' });
         });
 
-        // Текст инструкции
         this.add.text(width * 0.05, height * 0.5, 'Выберите лишний кадр:', { fontSize: '20px', color: '#ffffff' });
 
-        // Кнопки выбора кадра
         const buttonWidth = width * 0.15;
         const buttonHeight = height * 0.1;
         const buttonSpacing = width * 0.05;
@@ -149,7 +139,6 @@ class AdminGameScene extends Phaser.Scene {
             });
         }
 
-        // Кнопка "Конец тура"
         const endTourButton = this.add.rectangle(width * 0.5, height * 0.85, width * 0.3, height * 0.1, 0x999999)
             .setStrokeStyle(2, 0x000000)
             .setInteractive();
@@ -223,14 +212,11 @@ class AdminResultsScene extends Phaser.Scene {
         const height = this.cameras.main.height;
         const tourId = this.registry.get('tourId');
 
-        // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Заголовок
         this.add.text(width * 0.5, height * 0.1, 'Результаты тура', { fontSize: '24px', color: '#ffffff' })
             .setOrigin(0.5);
 
-        // Загрузка результатов
         fetch(`https://html5quizbot.onrender.com/api/tour_results?tour_id=${tourId}`)
             .then(response => response.json())
             .then(data => {
@@ -267,14 +253,11 @@ class GameScene extends Phaser.Scene {
         const tourId = this.registry.get('tourId');
         const userId = this.registry.get('userId');
 
-        // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Заголовок
         this.add.text(width * 0.5, height * 0.1, 'Ваш ход', { fontSize: '24px', color: '#ffffff' })
             .setOrigin(0.5);
 
-        // Загрузка кадров (пример)
         const frameWidth = width * 0.2;
         const frameHeight = height * 0.3;
         const frames = [
@@ -284,12 +267,10 @@ class GameScene extends Phaser.Scene {
             this.add.image(width * 0.8, height * 0.3, 'frame4').setDisplaySize(frameWidth, frameHeight)
         ];
 
-        // Номера под кадрами
         frames.forEach((frame, index) => {
             this.add.text(frame.x - frameWidth / 4, frame.y + frameHeight / 2 + 10, `${index + 1}`, { fontSize: '16px', color: '#ffffff' });
         });
 
-        // Кнопки выбора кадра
         const buttonWidth = width * 0.15;
         const buttonHeight = height * 0.1;
         const buttonSpacing = width * 0.05;
@@ -349,14 +330,11 @@ class ResultsScene extends Phaser.Scene {
         const tourId = this.registry.get('tourId');
         const userId = this.registry.get('userId');
 
-        // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
-        // Заголовок
         this.add.text(width * 0.5, height * 0.1, 'Ваши результаты', { fontSize: '24px', color: '#ffffff' })
             .setOrigin(0.5);
 
-        // Загрузка результатов
         fetch(`https://html5quizbot.onrender.com/api/tour_results?tour_id=${tourId}`)
             .then(response => response.json())
             .then(data => {
@@ -382,7 +360,6 @@ class ResultsScene extends Phaser.Scene {
     }
 }
 
-// Конфигурация игры
 const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -391,4 +368,5 @@ const config = {
     scene: [MainScene, AdminGameScene, AdminResultsScene, GameScene, ResultsScene]
 };
 
+console.log("Creating Phaser game instance");
 const game = new Phaser.Game(config);

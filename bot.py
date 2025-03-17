@@ -44,14 +44,15 @@ def callback_register(call):
 
 @bot.message_handler(commands=['endregistration'])
 def end_registration(message):
+    app.logger.info(f"Received /endregistration from {message.chat.id}")
     if str(message.chat.id) != ADMIN_CHAT_ID:
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
         return
-    bot.delete_message(GROUP_CHAT_ID, message.message_id - 1)  # Удаляем сообщение с кнопкой
     bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
 
 @bot.message_handler(commands=['play'])
 def play(message):
+    app.logger.info(f"Received /play from {message.chat.id}")
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
     bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
