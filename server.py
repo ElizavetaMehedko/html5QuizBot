@@ -15,9 +15,9 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 app.logger.debug("Starting Flask server...")
 
 # Настройка CORS
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api-/.*/": {"origins": "*"}})
 
-# Загрузка переменных окружения
+# Загрузка переменных окружenia
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
 ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
@@ -61,8 +61,8 @@ with app.app_context():
 def get_registered_players():
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('SELECT name FROM players')
-    players = [row[0] for row in cursor.fetchall()]
+    cursor.execute('SELECT id, name FROM players')
+    players = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
     cursor.close()
     return players
 
@@ -103,23 +103,25 @@ def handle_message(message):
         # Уведомление админу
         players = get_registered_players()
         if players:
-            player_list = "\n".join(players)
+            player_list = "\n".join([f"{p['name']} (ID: {p['id']})" for p in players])
             bot.send_message(ADMIN_CHAT_ID, f"Регистрация завершена!\nЗарегистрированные игроки:\n{player_list}\nЗапустите игру командой /play")
         else:
             bot.send_message(ADMIN_CHAT_ID, "Регистрация завершена, но никто не зарегистрировался.\nЗапустите игру командой /play, если хотите продолжить.")
     elif message.text == '/endregistration':
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
-        # Создание кнопок с URL
+        # Создание кнопок с WebApp
         markup_group = types.InlineKeyboardMarkup()
-        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", url=WEBAPP_URL))
+        web_app_info = types.WebAppInfo(url=WEBAPP_URL)
+        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", web_app=web_app_info))
 
         markup_admin = types.InlineKeyboardMarkup()
-        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", url=WEBAPP_URL))
+        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", web_app=web_app_info))
 
         try:
             bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
             bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.", reply_markup=markup_admin)
+            app.logger.debug(f"Sent messages with WebApp URL: {WEBAPP_URL}")
         except telebot.apihelper.ApiTelegramException as e:
             app.logger.error(f"Telegram API Error: {str(e)}")
             bot.send_message(ADMIN_CHAT_ID, f"Ошибка при отправке сообщений: {str(e)}")
@@ -141,7 +143,6 @@ def handle_callback_query(callback_query):
                 cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
                 db.commit()
                 bot.answer_callback_query(callback_query.id, "Регистрация успешна!")
-                # Уведомление админу
                 bot.send_message(ADMIN_CHAT_ID, f"Пользователь {name} (ID: {user_id}) зарегистрировался.")
             else:
                 bot.answer_callback_query(callback_query.id, "Вы уже зарегистрированы!")
@@ -151,8 +152,8 @@ def handle_callback_query(callback_query):
             bot.answer_callback_query(callback_query.id, "Ошибка регистрации!")
 
 # Регистрация вебхука
-WEBHOOK_URL = f"{SERVER_URL}/webhook"
-@app.route('/webhook', methods=['POST'])
+WEBHOOK_URL = f"{SERVER_URL}/{TOKEN}"
+@app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     app.logger.info("Webhook received")
     json_string = request.get_data().decode('utf-8')
@@ -228,6 +229,7 @@ def submit_answer():
     db = get_db()
     cursor = db.cursor()
     cursor.execute('INSERT INTO results (player_id, tour_id, points, answer) VALUES (%s, %s, %s, %s)', (user_id, tour_id, points, answer))
+    cursor.execute('UPDATE players SET total_points = total_points + %s WHERE id = %s', (points, user_id))
     db.commit()
     cursor.close()
     return jsonify({'status': 'success'})
@@ -242,6 +244,13 @@ def end_tour():
     db = get_db()
     cursor = db.cursor()
     cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
+    # Обновление баллов игроков
+    cursor.execute('SELECT player_id, answer FROM results WHERE tour_id = %s', (tour_id,))
+    results = cursor.fetchall()
+    for player_id, answer in results:
+        points = 10 if answer == correct_answer else 0
+        cursor.execute('UPDATE players SET total_points = total_points + %s WHERE id = %s', (points, player_id))
+        cursor.execute('UPDATE results SET points = %s WHERE tour_id = %s AND player_id = %s', (points, tour_id, player_id))
     db.commit()
     cursor.close()
     return jsonify({'status': 'success'})
@@ -276,8 +285,8 @@ def tour_results():
         return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('SELECT p.name, r.answer, r.points FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
-    results = [{'name': row[0], 'answer': row[1], 'points': row[2]} for row in cursor.fetchall()]
+    cursor.execute('SELECT p.id, p.name, r.answer, r.points FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
+    results = [{'user_id': row[0], 'name': row[1], 'answer': row[2], 'points': row[3]} for row in cursor.fetchall()]
     cursor.close()
     return jsonify({'results': results})
 
@@ -291,4 +300,4 @@ def leaderboard():
     return jsonify({'leaderboard': leaderboard})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))  # Убедитесь, что порт совпадает с указанным в Render (10000)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
