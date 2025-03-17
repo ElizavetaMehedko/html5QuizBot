@@ -112,13 +112,19 @@ def handle_message(message):
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
         # Создание кнопки с WebAppInfo
         markup_group = types.InlineKeyboardMarkup()
-        markup_group.add(types.InlineKeyboardButton("🎮 Играть", web_app=types.WebAppInfo(url=WEBAPP_URL)))
+        web_app_info = types.WebAppInfo(url=WEBAPP_URL)
+        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", web_app=web_app_info))
 
         markup_admin = types.InlineKeyboardMarkup()
-        markup_admin.add(types.InlineKeyboardButton("🎮 Начать игру (Админ)", web_app=types.WebAppInfo(url=WEBAPP_URL)))
+        web_app_info_admin = types.WebAppInfo(url=WEBAPP_URL)
+        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", web_app=web_app_info_admin))
 
-        bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
-        bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.", reply_markup=markup_admin)
+        try:
+            bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
+            bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.", reply_markup=markup_admin)
+        except telebot.apihelper.ApiTelegramException as e:
+            app.logger.error(f"Telegram API Error: {str(e)}")
+            bot.send_message(ADMIN_CHAT_ID, f"Ошибка при отправке сообщений: {str(e)}")
     elif message.text == '/play':
         bot.reply_to(message, "Только администратор может начать игру.")
 
