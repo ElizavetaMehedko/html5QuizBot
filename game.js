@@ -11,6 +11,7 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
+        console.log("MainScene create called"); // Добавляем отладочный лог
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
@@ -22,6 +23,7 @@ class MainScene extends Phaser.Scene {
 
         // Проверка данных пользователя
         if (!initData || !initData.user) {
+            console.error("No user data available");
             this.add.text(width * 0.5, height * 0.5, 'Ошибка: Нет данных пользователя.\nУбедитесь, что вы открыли приложение через Telegram.', { fontSize: '20px', color: '#ff0000', align: 'center' })
                 .setOrigin(0.5);
             return;
@@ -59,6 +61,31 @@ class MainScene extends Phaser.Scene {
                     .setOrigin(0.5);
             });
     }
+
+    checkTour() {
+        fetch('https://html5quizbot.onrender.com/api/current_tour')
+            .then(response => response.json())
+            .then(data => {
+                console.log("Current tour data:", data);
+                if (data.id) {
+                    this.registry.set('tourId', data.id);
+                    this.registry.set('tourName', data.name);
+                    if (this.registry.get('userId') == ADMIN_CHAT_ID) {
+                        this.scene.start('AdminGameScene');
+                    } else {
+                        this.scene.start('GameScene');
+                    }
+                } else {
+                    setTimeout(() => this.checkTour(), 5000);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking tour:', error);
+                this.waitText.setText('Ошибка проверки тура...');
+                setTimeout(() => this.checkTour(), 5000);
+            });
+    }
+}
 
     checkTour() {
         fetch('https://html5quizbot.onrender.com/api/current_tour')
