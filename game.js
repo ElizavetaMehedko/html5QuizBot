@@ -13,8 +13,8 @@ class AdminScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Текст для админа с переносом
-        const adminText = `Экран для админа\nВаш ID: ${this.registry.get('userId')}`;
+        // Текст для админа с переносом и деталями
+        const adminText = `Экран для админа\nВаш ID: ${this.registry.get('userId')}\nИсточник ID: ${this.registry.get('userIdSource') || 'Не определено'}`;
         this.add.text(width / 2, height / 2, adminText, { 
             fontSize: '20px',
             color: '#ffffff',
@@ -34,8 +34,8 @@ class PlayerScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Текст для игрока с переносом
-        const playerText = `Привет, игрок!\nВаш ID: ${this.registry.get('userId')}`;
+        // Текст для игрока с переносом и деталями
+        const playerText = `Привет, игрок!\nВаш ID: ${this.registry.get('userId')}\nИсточник ID: ${this.registry.get('userIdSource') || 'Не определено'}`;
         this.add.text(width / 2, height / 2, playerText, { 
             fontSize: '20px',
             color: '#ffffff',
@@ -60,10 +60,14 @@ class MainScene extends Phaser.Scene {
         const userIdFromUrl = urlParams.get('userId');
         const role = urlParams.get('role');
         const userId = initData && initData.user ? initData.user.id.toString() : userIdFromUrl;
+        const userIdSource = initData && initData.user ? 'Telegram initData' : 'URL Parameter';
 
         // Логи для отладки
         console.log('Full initData:', JSON.stringify(initData, null, 2));
-        console.log('User ID from URL or initData:', userId);
+        console.log('User ID from URL:', userIdFromUrl);
+        console.log('User ID from initData:', initData && initData.user ? initData.user.id : 'Не доступно');
+        console.log('Final User ID:', userId);
+        console.log('Source of User ID:', userIdSource);
         console.log('Role from URL:', role);
 
         // Проверка наличия userId
@@ -77,8 +81,9 @@ class MainScene extends Phaser.Scene {
             return;
         }
 
-        // Сохраняем userId для использования в сценах
+        // Сохраняем userId и источник для отображения в сценах
         this.registry.set('userId', userId);
+        this.registry.set('userIdSource', userIdSource);
 
         // Проверяем роль из URL
         if (role === 'admin') {
@@ -88,7 +93,6 @@ class MainScene extends Phaser.Scene {
             console.log('Starting PlayerScene for user:', userId);
             this.scene.start('PlayerScene');
         } else {
-            // Если role не указан, показываем ошибку
             this.add.text(width / 2, height / 2, 'Ошибка: Роль не определена.', { 
                 fontSize: '16px',
                 color: '#ff0000',
