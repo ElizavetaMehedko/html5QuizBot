@@ -112,17 +112,17 @@ def handle_message(message):
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
         # Создание кнопок с URL
         markup_group = types.InlineKeyboardMarkup()
-        # Для группы: роль "player"
+        # Для группы: роль "player" без фиксированного userId
         markup_group.add(types.InlineKeyboardButton(
             text="🎮 Играть",
-            url=f"{WEBAPP_URL}?userId={message.from_user.id}&role=player"
+            url=f"{WEBAPP_URL}?role=player"
         ))
 
         markup_admin = types.InlineKeyboardMarkup()
-        # Для админа: роль "admin"
+        # Для админа: роль "admin" без фиксированного userId
         markup_admin.add(types.InlineKeyboardButton(
             text="🎮 Начать игру (Админ)",
-            url=f"{WEBAPP_URL}?userId={message.from_user.id}&role=admin"
+            url=f"{WEBAPP_URL}?role=admin"
         ))
 
         try:

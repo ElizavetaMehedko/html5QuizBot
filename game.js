@@ -55,18 +55,15 @@ class MainScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Получаем userId и role из Telegram или URL
+        // Получаем role из URL
         const urlParams = new URLSearchParams(window.location.search);
-        const userIdFromUrl = urlParams.get('userId');
         const role = urlParams.get('role');
-        const userId = initData && initData.user ? initData.user.id.toString() : userIdFromUrl;
-        const userIdSource = initData && initData.user ? 'Telegram initData' : 'URL Parameter';
+        const userId = initData && initData.user ? initData.user.id.toString() : null;
+        const userIdSource = initData && initData.user ? 'Telegram initData' : 'URL Parameter (не используется)';
 
         // Логи для отладки
         console.log('Full initData:', JSON.stringify(initData, null, 2));
-        console.log('User ID from URL:', userIdFromUrl);
-        console.log('User ID from initData:', initData && initData.user ? initData.user.id : 'Не доступно');
-        console.log('Final User ID:', userId);
+        console.log('User ID from initData:', userId || 'Не доступно');
         console.log('Source of User ID:', userIdSource);
         console.log('Role from URL:', role);
 
@@ -103,11 +100,11 @@ class MainScene extends Phaser.Scene {
     }
 }
 
-// Конфигурация Phaser с новыми размерами
+// Конфигурация Phaser с размерами 360x640
 const config = {
     type: Phaser.AUTO,
-    width: 360, // Новая ширина
-    height: 640, // Новая высота
+    width: 360,
+    height: 640,
     parent: 'game-container',
     scene: [MainScene, AdminScene, PlayerScene],
     scale: {
