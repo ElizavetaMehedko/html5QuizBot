@@ -111,11 +111,11 @@ def handle_message(message):
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
         markup_group = types.InlineKeyboardMarkup()
-        markup_group.add(types.InlineKeyboardButton("🎮 Играть", url=f"{WEBAPP_URL}"))
+        markup_group.add(types.InlineKeyboardButton("🎮 Играть", web_app={'url': WEBAPP_URL}))
         bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
 
         markup_admin = types.InlineKeyboardMarkup()
-        markup_admin.add(types.InlineKeyboardButton("🎮 Начать игру (Админ)", url=f"{WEBAPP_URL}"))
+        markup_admin.add(types.InlineKeyboardButton("🎮 Начать игру (Админ)", web_app={'url': WEBAPP_URL}))
         bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.", reply_markup=markup_admin)
     elif message.text == '/play':
         bot.reply_to(message, "Только администратор может начать игру.")
@@ -200,7 +200,7 @@ def start_tour():
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
         db = get_db()
         cursor = db.cursor()
-        cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-15', mode))
+        cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-17', mode))
         db.commit()
         tour_id = cursor.lastrowid
         cursor.close()
