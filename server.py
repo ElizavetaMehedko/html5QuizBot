@@ -23,7 +23,6 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')
 TOKEN = os.getenv('TOKEN')
 GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID')
-SERVER_URL = os.getenv('SERVER_URL')
 WEBAPP_URL = os.getenv('WEBAPP_URL', 'https://html5-quiz-bot.vercel.app')
 
 # Инициализация бота
@@ -66,7 +65,7 @@ def get_registered_players():
     cursor.close()
     return players
 
-# Обработчики команд
+# Обработчик команд
 def handle_message(message):
     global registration_message_id
     app.logger.info(f"Received message from {message.chat.id}: {message.text}")
@@ -81,63 +80,24 @@ def handle_message(message):
             app.logger.info("Database cleared")
         except Exception as e:
             app.logger.error(f"Error clearing database: {str(e)}")
-        bot.reply_to(message, "Бот запущен. База данных очищена. Используйте /registration для начала.")
+        
+        # Отправка сообщения с кнопкой сразу в группу и админу
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(
+            text="🎮 Присоединиться к игре",
+            url=f"{WEBAPP_URL}?role=player",
+            callback_data="register_player"
+        ))
+        msg = bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup)
+        bot.send_message(ADMIN_CHAT_ID, "Игра запущена. Ждите игроков.", reply_markup=markup.copy())
+        registration_message_id = msg.message_id
     elif message.text == '/start':
         bot.reply_to(message, "Бот активен. Ожидайте команды администратора.")
-    elif message.text == '/registration' and str(message.chat.id) == ADMIN_CHAT_ID:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("📝 Зарегистрироваться", callback_data="register"))
-        msg = bot.send_message(GROUP_CHAT_ID, "Нажмите кнопку для регистрации:", reply_markup=markup)
-        registration_message_id = msg.message_id
-        bot.send_message(ADMIN_CHAT_ID, f"Registration message sent to {GROUP_CHAT_ID} with message_id {msg.message_id}\nЗавершайте регистрацию командой /endregistration")
-    elif message.text == '/registration':
-        bot.reply_to(message, "Только администратор может начать регистрацию.")
-    elif message.text == '/endregistration' and str(message.chat.id) == ADMIN_CHAT_ID:
-        if registration_message_id:
-            try:
-                bot.delete_message(GROUP_CHAT_ID, registration_message_id)
-                app.logger.info(f"Deleted registration message {registration_message_id}")
-            except Exception as e:
-                app.logger.error(f"Error deleting message: {str(e)}")
-        bot.send_message(GROUP_CHAT_ID, "Счастливых Вам голодных игр, и пусть удача всегда будет с Вами!")
-        # Уведомление админу
-        players = get_registered_players()
-        if players:
-            player_list = "\n".join(players)
-            bot.send_message(ADMIN_CHAT_ID, f"Регистрация завершена!\nЗарегистрированные игроки:\n{player_list}\nЗапустите игру командой /play")
-        else:
-            bot.send_message(ADMIN_CHAT_ID, "Регистрация завершена, но никто не зарегистрировался.\nЗапустите игру командой /play, если хотите продолжить.")
-    elif message.text == '/endregistration':
-        bot.reply_to(message, "Только администратор может завершить регистрацию.")
-    elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
-        # Создание кнопок с URL
-        markup_group = types.InlineKeyboardMarkup()
-        # Для группы: роль "player" без фиксированного userId
-        markup_group.add(types.InlineKeyboardButton(
-            text="🎮 Играть",
-            url=f"{WEBAPP_URL}?role=player"
-        ))
 
-        markup_admin = types.InlineKeyboardMarkup()
-        # Для админа: роль "admin" без фиксированного userId
-        markup_admin.add(types.InlineKeyboardButton(
-            text="🎮 Начать игру (Админ)",
-            url=f"{WEBAPP_URL}?role=admin"
-        ))
-
-        try:
-            bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
-            bot.send_message(ADMIN_CHAT_ID, "Игра запущена для группы. Ожидайте игроков.", reply_markup=markup_admin)
-        except telebot.apihelper.ApiTelegramException as e:
-            app.logger.error(f"Telegram API Error: {str(e)}")
-            bot.send_message(ADMIN_CHAT_ID, f"Ошибка при отправке сообщений: {str(e)}")
-    elif message.text == '/play':
-        bot.reply_to(message, "Только администратор может начать игру.")
-
-# Обработчик коллбэков
+# Обработчик коллбэков (регистрация игроков)
 def handle_callback_query(callback_query):
     app.logger.info(f"Received callback from {callback_query.from_user.id}: {callback_query.data}")
-    if callback_query.data == "register":
+    if callback_query.data == "register_player":
         user_id = callback_query.from_user.id
         name = callback_query.from_user.first_name or "Unknown"
         try:
@@ -148,18 +108,23 @@ def handle_callback_query(callback_query):
             if not player:
                 cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
                 db.commit()
-                bot.answer_callback_query(callback_query.id, "Регистрация успешна!")
-                # Уведомление админу
-                bot.send_message(ADMIN_CHAT_ID, f"Пользователь {name} (ID: {user_id}) зарегистрировался.")
+                bot.answer_callback_query(callback_query.id, "Регистрация успешна! Вы переадресованы в игру.")
+                # Перенаправление в Web App
+                bot.send_message(callback_query.from_user.id, "Перейдите в игру:", reply_markup=types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton(text="🎮 Играть", url=f"{WEBAPP_URL}?role=player")
+                ))
             else:
-                bot.answer_callback_query(callback_query.id, "Вы уже зарегистрированы!")
+                bot.answer_callback_query(callback_query.id, "Вы уже зарегистрированы! Перейдите в игру.")
+                bot.send_message(callback_query.from_user.id, "Перейдите в игру:", reply_markup=types.InlineKeyboardMarkup().add(
+                    types.InlineKeyboardButton(text="🎮 Играть", url=f"{WEBAPP_URL}?role=player")
+                ))
             cursor.close()
         except Exception as e:
             app.logger.error(f"Error registering user {user_id}: {str(e)}")
             bot.answer_callback_query(callback_query.id, "Ошибка регистрации!")
 
 # Регистрация вебхука
-WEBHOOK_URL = f"{SERVER_URL}/webhook"
+WEBHOOK_URL = f"{os.getenv('SERVER_URL')}/webhook"
 @app.route('/webhook', methods=['POST'])
 def webhook():
     app.logger.info("Webhook received")
@@ -171,131 +136,6 @@ def webhook():
     if update and update.callback_query:
         handle_callback_query(update.callback_query)
     return '', 200
-
-# Эндпоинт для получения ADMIN_CHAT_ID
-@app.route('/api/admin_id', methods=['GET'])
-def get_admin_id():
-    return jsonify({'admin_chat_id': ADMIN_CHAT_ID})
-
-# Существующие API-эндпоинты
-@app.route('/api/register', methods=['POST'])
-def register():
-    data = request.json
-    user_id = data.get('user_id')
-    name = data.get('name')
-    if not user_id or not name:
-        return jsonify({'status': 'error', 'message': 'Missing user_id or name'}), 400
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT * FROM players WHERE id = %s', (user_id,))
-    player = cursor.fetchone()
-    if not player:
-        cursor.execute('INSERT INTO players (id, name) VALUES (%s, %s)', (user_id, name))
-        db.commit()
-    cursor.close()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/start_tour', methods=['POST'])
-def start_tour():
-    data = request.json
-    mode = data.get('mode')
-    name = data.get('name')
-    user_id = data.get('user_id')
-    if not mode or not name:
-        app.logger.error(f"Invalid request data: mode={mode}, name={name}")
-        return jsonify({'status': 'error', 'message': 'Missing mode or name'}), 400
-    if not user_id:
-        app.logger.error("Missing user_id")
-        return jsonify({'status': 'error', 'message': 'Missing user_id'}), 400
-    try:
-        if str(user_id) != ADMIN_CHAT_ID:
-            app.logger.warning(f"Unauthorized attempt to start tour by user {user_id}")
-            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute('INSERT INTO tours (name, date, mode) VALUES (%s, %s, %s)', (name, '2025-03-17', mode))
-        db.commit()
-        tour_id = cursor.lastrowid
-        cursor.close()
-        app.logger.info(f"Tour started: id={tour_id}, name={name}, mode={mode}")
-        return jsonify({'status': 'success', 'tour_id': tour_id})
-    except Exception as e:
-        app.logger.error(f"Error starting tour: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/submit_answer', methods=['POST'])
-def submit_answer():
-    data = request.json
-    user_id = data.get('user_id')
-    tour_id = data.get('tour_id')
-    points = data.get('points', 0)
-    answer = data.get('answer')
-    if not user_id or not tour_id or answer is None:
-        return jsonify({'status': 'error', 'message': 'Missing user_id, tour_id, or answer'}), 400
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('INSERT INTO results (player_id, tour_id, points, answer) VALUES (%s, %s, %s, %s)', (user_id, tour_id, points, answer))
-    db.commit()
-    cursor.close()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/end_tour', methods=['POST'])
-def end_tour():
-    data = request.json
-    tour_id = data.get('tour_id')
-    correct_answer = data.get('correct_answer')
-    if not tour_id:
-        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('UPDATE tours SET correct_answer = %s, status = %s WHERE id = %s', (correct_answer, 'finished', tour_id))
-    db.commit()
-    cursor.close()
-    return jsonify({'status': 'success'})
-
-@app.route('/api/current_tour', methods=['GET'])
-def current_tour():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT id, name, mode FROM tours WHERE status = %s LIMIT 1', ('active',))
-    tour = cursor.fetchone()
-    cursor.close()
-    if tour:
-        return jsonify({'id': tour[0], 'name': tour[1], 'mode': tour[2], 'status': 'active'})
-    return jsonify({'id': None})
-
-@app.route('/api/tour_answers', methods=['GET'])
-def tour_answers():
-    tour_id = request.args.get('tour_id')
-    if not tour_id:
-        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT p.name, r.answer FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
-    answers = [{'name': row[0], 'answer': row[1]} for row in cursor.fetchall()]
-    cursor.close()
-    return jsonify({'answers': answers})
-
-@app.route('/api/tour_results', methods=['GET'])
-def tour_results():
-    tour_id = request.args.get('tour_id')
-    if not tour_id:
-        return jsonify({'status': 'error', 'message': 'Missing tour_id'}), 400
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT p.name, r.answer, r.points FROM results r JOIN players p ON r.player_id = p.id WHERE r.tour_id = %s', (tour_id,))
-    results = [{'name': row[0], 'answer': row[1], 'points': row[2]} for row in cursor.fetchall()]
-    cursor.close()
-    return jsonify({'results': results})
-
-@app.route('/api/leaderboard', methods=['GET'])
-def leaderboard():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT id, name, total_points FROM players ORDER BY total_points DESC')
-    leaderboard = [{'id': row[0], 'name': row[1], 'total_points': row[2] or 0} for row in cursor.fetchall()]
-    cursor.close()
-    return jsonify({'leaderboard': leaderboard})
 
 # Установка вебхука при старте
 with app.app_context():
