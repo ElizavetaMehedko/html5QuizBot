@@ -112,10 +112,18 @@ def handle_message(message):
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
         # Создание кнопок с URL
         markup_group = types.InlineKeyboardMarkup()
-        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", url=f"{WEBAPP_URL}?userId={message.from_user.id}"))
+        # Для группы: роль "player"
+        markup_group.add(types.InlineKeyboardButton(
+            text="🎮 Играть",
+            url=f"{WEBAPP_URL}?userId={message.from_user.id}&role=player"
+        ))
 
         markup_admin = types.InlineKeyboardMarkup()
-        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", url=f"{WEBAPP_URL}?userId={message.from_user.id}"))
+        # Для админа: роль "admin"
+        markup_admin.add(types.InlineKeyboardButton(
+            text="🎮 Начать игру (Админ)",
+            url=f"{WEBAPP_URL}?userId={message.from_user.id}&role=admin"
+        ))
 
         try:
             bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
@@ -164,16 +172,10 @@ def webhook():
         handle_callback_query(update.callback_query)
     return '', 200
 
-# Новый эндпоинт для получения ADMIN_CHAT_ID
+# Эндпоинт для получения ADMIN_CHAT_ID
 @app.route('/api/admin_id', methods=['GET'])
 def get_admin_id():
     return jsonify({'admin_chat_id': ADMIN_CHAT_ID})
-
-# Установка вебхука при старте
-with app.app_context():
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
-    app.logger.info(f"Webhook set to {WEBHOOK_URL}")
 
 # Существующие API-эндпоинты
 @app.route('/api/register', methods=['POST'])
@@ -294,6 +296,12 @@ def leaderboard():
     leaderboard = [{'id': row[0], 'name': row[1], 'total_points': row[2] or 0} for row in cursor.fetchall()]
     cursor.close()
     return jsonify({'leaderboard': leaderboard})
+
+# Установка вебхука при старте
+with app.app_context():
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+    app.logger.info(f"Webhook set to {WEBHOOK_URL}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
