@@ -17,6 +17,9 @@ class MainScene extends Phaser.Scene {
         // Серый фон
         this.cameras.main.setBackgroundColor('#666666');
 
+        // Логирование для отладки
+        console.log("Telegram WebApp initData:", initData);
+
         // Проверка данных пользователя
         if (!initData || !initData.user) {
             this.add.text(width * 0.5, height * 0.5, 'Ошибка: Нет данных пользователя.\nУбедитесь, что вы открыли приложение через Telegram.', { fontSize: '20px', color: '#ff0000', align: 'center' })
@@ -33,6 +36,7 @@ class MainScene extends Phaser.Scene {
         fetch('https://html5quizbot.onrender.com/api/leaderboard')
             .then(response => response.json())
             .then(data => {
+                console.log("Leaderboard data:", data);
                 const player = data.leaderboard.find(p => p.id == userId);
                 if (!player) {
                     this.add.text(width * 0.5, height * 0.5, 'Вы не зарегистрированы.\nПожалуйста, зарегистрируйтесь через бота.', { fontSize: '20px', color: '#ff0000', align: 'center' })
@@ -50,8 +54,8 @@ class MainScene extends Phaser.Scene {
                 this.checkTour();
             })
             .catch(error => {
-                console.error('Error:', error);
-                this.add.text(width * 0.5, height * 0.5, 'Ошибка загрузки данных.', { fontSize: '20px', color: '#ff0000' })
+                console.error('Error fetching leaderboard:', error);
+                this.add.text(width * 0.5, height * 0.5, 'Ошибка загрузки данных.\nПопробуйте перезапустить приложение.', { fontSize: '20px', color: '#ff0000', align: 'center' })
                     .setOrigin(0.5);
             });
     }
@@ -60,6 +64,7 @@ class MainScene extends Phaser.Scene {
         fetch('https://html5quizbot.onrender.com/api/current_tour')
             .then(response => response.json())
             .then(data => {
+                console.log("Current tour data:", data);
                 if (data.id) {
                     this.registry.set('tourId', data.id);
                     this.registry.set('tourName', data.name);
@@ -73,7 +78,7 @@ class MainScene extends Phaser.Scene {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error checking tour:', error);
                 this.waitText.setText('Ошибка проверки тура...');
                 setTimeout(() => this.checkTour(), 5000);
             });
