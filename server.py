@@ -110,14 +110,12 @@ def handle_message(message):
     elif message.text == '/endregistration':
         bot.reply_to(message, "Только администратор может завершить регистрацию.")
     elif message.text == '/play' and str(message.chat.id) == ADMIN_CHAT_ID:
-        # Создание кнопки с WebAppInfo
+        # Создание кнопок с URL
         markup_group = types.InlineKeyboardMarkup()
-        web_app_info = types.WebAppInfo(url=WEBAPP_URL)
-        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", web_app=web_app_info))
+        markup_group.add(types.InlineKeyboardButton(text="🎮 Играть", url=WEBAPP_URL))
 
         markup_admin = types.InlineKeyboardMarkup()
-        web_app_info_admin = types.WebAppInfo(url=WEBAPP_URL)
-        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", web_app=web_app_info_admin))
+        markup_admin.add(types.InlineKeyboardButton(text="🎮 Начать игру (Админ)", url=WEBAPP_URL))
 
         try:
             bot.send_message(GROUP_CHAT_ID, "Игра началась! Нажмите, чтобы присоединиться:", reply_markup=markup_group)
