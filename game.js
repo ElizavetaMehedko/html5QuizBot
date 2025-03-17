@@ -12,9 +12,14 @@ class AdminScene extends Phaser.Scene {
     create() {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        this.add.text(width / 2, height / 2, 'Экран для админа', { 
-            fontSize: '24px', 
-            color: '#ffffff' 
+
+        // Текст для админа с переносом
+        const adminText = `Экран для админа\nВаш ID: ${this.registry.get('userId')}`;
+        this.add.text(width / 2, height / 2, adminText, { 
+            fontSize: '20px', // Уменьшаем размер шрифта для мобильных
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: width - 40 } // Перенос текста с отступом 20px с каждой стороны
         }).setOrigin(0.5);
     }
 }
@@ -28,9 +33,14 @@ class PlayerScene extends Phaser.Scene {
     create() {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        this.add.text(width / 2, height / 2, 'Привет, игрок!', { 
-            fontSize: '24px', 
-            color: '#ffffff' 
+
+        // Текст для игрока с переносом
+        const playerText = `Привет, игрок!\nВаш ID: ${this.registry.get('userId')}`;
+        this.add.text(width / 2, height / 2, playerText, { 
+            fontSize: '20px', // Уменьшаем размер шрифта для мобильных
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: width - 40 } // Перенос текста с отступом 20px с каждой стороны
         }).setOrigin(0.5);
     }
 }
@@ -57,12 +67,16 @@ class MainScene extends Phaser.Scene {
         // Проверка наличия userId
         if (!userId) {
             this.add.text(width / 2, height / 2, 'Ошибка: Нет данных пользователя.\nОткройте через Telegram.', { 
-                fontSize: '20px', 
-                color: '#ff0000', 
-                align: 'center' 
+                fontSize: '16px', // Уменьшенный шрифт для ошибки
+                color: '#ff0000',
+                align: 'center',
+                wordWrap: { width: width - 40 }
             }).setOrigin(0.5);
             return;
         }
+
+        // Сохраняем userId для использования в сценах
+        this.registry.set('userId', userId);
 
         // Запрашиваем ADMIN_CHAT_ID с сервера
         fetch('https://html5quizbot.onrender.com/api/admin_id')
@@ -83,21 +97,26 @@ class MainScene extends Phaser.Scene {
             .catch(error => {
                 console.error('Error fetching admin ID:', error);
                 this.add.text(width / 2, height / 2, 'Ошибка загрузки данных админа.', { 
-                    fontSize: '20px', 
-                    color: '#ff0000', 
-                    align: 'center' 
+                    fontSize: '16px',
+                    color: '#ff0000',
+                    align: 'center',
+                    wordWrap: { width: width - 40 }
                 }).setOrigin(0.5);
             });
     }
 }
 
-// Конфигурация Phaser
+// Конфигурация Phaser с новыми размерами
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 800 / 3, // Уменьшаем ширину в 3 раза: 800 / 3 ≈ 267
+    height: 600 * 1.1, // Увеличиваем высоту на 10%: 600 * 1.1 = 660
     parent: 'game-container',
-    scene: [MainScene, AdminScene, PlayerScene]
+    scene: [MainScene, AdminScene, PlayerScene],
+    scale: {
+        mode: Phaser.Scale.FIT, // Подстраиваем масштаб под экран устройства
+        autoCenter: Phaser.Scale.CENTER_BOTH // Центрируем игру
+    }
 };
 
 // Создаём игру
